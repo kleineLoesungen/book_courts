@@ -9,7 +9,7 @@ This milestone hardens an already-live app. Every requirement below targets a sp
 
 ### Configuration & Secrets
 
-- [ ] **CONF-01**: Database credentials and other config load from a `.env` file (not committed, outside or protected within webroot) instead of plaintext `conf.php` committed to the working tree
+- [x] **CONF-01**: Database credentials and other config load from a `.env` file (not committed, outside or protected within webroot) instead of plaintext `conf.php` committed to the working tree
 - [ ] **CONF-02**: The exposed database password is rotated on the actual PostgreSQL server as part of this change (not just moved to a new file)
 
 ### Session Security
@@ -80,7 +80,7 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONF-01 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Complete |
 | CONF-02 | Phase 1 | Pending |
 | TEST-01 | Phase 2 | Pending |
 | TEST-02 | Phase 2 | Pending |

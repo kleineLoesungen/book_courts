@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. `conf.php` no longer contains a live credential (deprecated or removed).
 **Plans**: 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — Build the .env loader, template, and protection layer; wire index.php/admin.php to it and retire conf.php (CONF-01)
+- [x] 01-01-PLAN.md — Build the .env loader, template, and protection layer; wire index.php/admin.php to it and retire conf.php (CONF-01)
 - [ ] 01-02-PLAN.md — Rotate the production PostgreSQL password and deploy the matching .env, verified end-to-end (CONF-02)
 
 ### Phase 2: Automated Test Coverage & Series Verification
