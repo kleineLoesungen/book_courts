@@ -29,7 +29,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The live production database password is different from the one that was previously exposed, and the app is verified working end-to-end against the new credential.
   3. A committed `.env.example` documents every required config key without containing a real secret.
   4. `conf.php` no longer contains a live credential (deprecated or removed).
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 01-01-PLAN.md — Build the .env loader, template, and protection layer; wire index.php/admin.php to it and retire conf.php (CONF-01)
+- [ ] 01-02-PLAN.md — Rotate the production PostgreSQL password and deploy the matching .env, verified end-to-end (CONF-02)
 
 ### Phase 2: Automated Test Coverage & Series Verification
 **Goal**: The two highest-risk pieces of business logic — booking conflict detection and recurring series materialization — have automated regression coverage, and `materialize_series()` is confirmed complete and correct.
@@ -82,7 +85,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Configuration & Secrets Hardening | 0/TBD | Not started | - |
+| 1. Configuration & Secrets Hardening | 0/2 | Not started | - |
 | 2. Automated Test Coverage & Series Verification | 0/TBD | Not started | - |
 | 3. Code Consolidation - Shared Helpers & Realm-Aware Auth | 0/TBD | Not started | - |
 | 4. Session Security & Brute-Force Protection | 0/TBD | Not started | - |
