@@ -1,0 +1,7 @@
+# Zugriff auf sensible Dateien verhindern
+<FilesMatch "^(\.env|conf\.php|pg\.sql)$">
+    Require all denied
+</FilesMatch>
+
+# index.php als Standard-Startseite
+DirectoryIndex index.php
