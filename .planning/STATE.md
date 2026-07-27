@@ -69,9 +69,17 @@ None yet.
 - Phase 1: Production PHP minor version and hosting access level (shell/vhost vs. FTP-only) unconfirmed — affects `.env` placement and PHPUnit version choice in Phase 2; verify before planning those phases in detail.
 - Phase 5 (v2 note): Self-service "forgot password" (AUTH-03) deferred to v2 pending a mail-delivery decision (native `mail()` vs. PHPMailer vs. admin-mediated); not blocking this milestone.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260727-wf2 | Create a deploy.sh script for FTP-based deployment | 2026-07-27 | eb533bb | [260727-wf2-create-a-deploy-sh-script-for-ftp-based-](./quick/260727-wf2-create-a-deploy-sh-script-for-ftp-based-/) |
+
 ## Session Continuity
 
 Last session: 2026-07-27T21:26:28.743Z
 Stopped at: Completed quick task 260727-wf2 (deploy.sh)
 Resume file: None
+
+Last activity: 2026-07-27 - Completed quick task 260727-wf2: Create a deploy.sh script for FTP-based deployment
 </content>
