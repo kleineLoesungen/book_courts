@@ -20,11 +20,12 @@ function pdo(): PDO
 {
   static $pdo = null;
   if ($pdo === null) {
-    global $dsn, $DB_USER, $DB_PASS;
+    global $dsn, $DB_USER, $DB_PASS, $DB_SCHEMA;
     $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
       PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
       PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
+    $pdo->exec('SET search_path TO "' . $DB_SCHEMA . '"');
   }
   return $pdo;
 }
