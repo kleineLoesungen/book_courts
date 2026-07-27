@@ -58,7 +58,9 @@ echo "Deploying to ${DEPLOY_FTP_HOST}:${DEPLOY_FTP_REMOTE_DIR}${dry_label}"
 
 # Deploy via lftp; credentials are passed only via stdin heredoc, never as CLI args.
 lftp <<LFTP_EOF
-set ftp:ssl-allow no
+set ftp:ssl-allow yes
+set ftp:ssl-force yes
+set ftp:ssl-protect-data yes
 open -u "${DEPLOY_FTP_USER},${DEPLOY_FTP_PASS}" -p "${DEPLOY_FTP_PORT}" "${DEPLOY_FTP_HOST}"
 mirror --reverse --verbose ${DRY_RUN} --exclude-glob .git/ --exclude-glob .planning/ --exclude-glob .env.deploy --exclude-glob deploy.sh --exclude-glob node_modules/ "${SCRIPT_DIR}/" "${DEPLOY_FTP_REMOTE_DIR}"
 bye
