@@ -78,30 +78,29 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONF-01 | TBD | Pending |
-| CONF-02 | TBD | Pending |
-| SESS-01 | TBD | Pending |
-| SESS-02 | TBD | Pending |
-| SESS-03 | TBD | Pending |
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| REFAC-01 | TBD | Pending |
-| REFAC-02 | TBD | Pending |
-| REFAC-03 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| AUDIT-01 | TBD | Pending |
+| CONF-01 | Phase 1 | Pending |
+| CONF-02 | Phase 1 | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| REFAC-03 | Phase 2 | Pending |
+| REFAC-01 | Phase 3 | Pending |
+| REFAC-02 | Phase 3 | Pending |
+| SESS-01 | Phase 4 | Pending |
+| SESS-02 | Phase 4 | Pending |
+| SESS-03 | Phase 4 | Pending |
+| AUTH-02 | Phase 4 | Pending |
+| AUTH-01 | Phase 5 | Pending |
+| AUDIT-01 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 14 ⚠️ (expected — roadmapper fills this in next)
+- Mapped to phases: 14 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-27*
-*Last updated: 2026-07-27 after initial definition*
+*Last updated: 2026-07-27 after roadmap creation*
+</content>
