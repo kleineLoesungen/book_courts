@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **Book Courts**
@@ -12,9 +11,7 @@ A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badmint
 - **Tech stack**: PHP + PostgreSQL, no framework — keep changes compatible with the existing PDO/stored-procedure architecture rather than introducing an ORM or framework migration
 - **No package manager**: Composer is not currently used; introducing dependencies (e.g. a test framework) needs a deliberate, minimal setup
 - **Single deployment target**: Apache + mod_php via `.htaccess`, no containerization currently in place
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:codebase/STACK.md -->
 ## Technology Stack
 
 ## Languages
@@ -52,9 +49,7 @@ A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badmint
 - Session storage (default: filesystem via PHP)
 - Application hardcoded to Europe/Berlin timezone in DateTime handling
 - Database schema expects Europe/Berlin timezone for timestamp conversions
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 ## Language & Type Safety
@@ -143,9 +138,7 @@ A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badmint
 - Long HTML strings use concatenation with `.`
 - All opening braces on same line: `if (...) {`
 - Closing braces on own line for blocks
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 ## Pattern Overview
@@ -233,26 +226,3 @@ A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badmint
 - Series expansion respects timezone when calculating occurrences
 - Advisory locks in `create_booking()` function (pg.sql line 175-176) serialize per-court operations
 - Prevents race conditions when multiple users book same court simultaneously
-<!-- GSD:architecture-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-- `/gsd:quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd:debug` for investigation and bug fixing
-- `/gsd:execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-
-
-<!-- GSD:profile-start -->
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd:profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
