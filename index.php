@@ -613,9 +613,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $series_id = $st->fetchColumn();
 
       // Termine materialisieren
-      materialize_series($series_id, $start_date, $end_date ?: (new DateTime($start_date))->modify('+6 months')->format('Y-m-d'));
+      $mat = materialize_series($series_id, $start_date, $end_date ?: (new DateTime($start_date))->modify('+6 months')->format('Y-m-d'));
 
-      flash('Serie angelegt und Termine materialisiert.');
+      if ($mat['skipped'] > 0) {
+        flash("Serie angelegt, aber unvollstaendig: {$mat['created']} Termine erstellt, {$mat['skipped']} konnten nicht angelegt werden. Bitte die betroffenen Tage pruefen.", 'error');
+      } else {
+        flash("Serie angelegt: {$mat['created']} Termine erstellt.");
+      }
       header('Location: index.php?view=week&date=' . $start_date . '&selected=' . $start_date);
       exit;
     }
@@ -1156,14 +1160,22 @@ function html_tail(): string
 }
 
 /** Materialisierung Serie (robust bzgl. TIME-Format) */
-function materialize_series(string $series_id, string $start_date, string $end_date): void
+/**
+ * Legt die Einzeltermine einer Serie an.
+ *
+ * @return array{created:int,skipped:int} Anzahl angelegter und uebersprungener Termine
+ */
+function materialize_series(string $series_id, string $start_date, string $end_date): array
 {
+  $created = 0;
+  $skipped = 0;
+
   $sql = "SELECT user_id,court_id,title,weekday,start_time,duration_min,timezone
           FROM book_courts.recurring_series WHERE id::text=:id";
   $s = pdo()->prepare($sql);
   $s->execute([':id' => $series_id]);
   $sconf = $s->fetch();
-  if (!$sconf) return;
+  if (!$sconf) return ['created' => 0, 'skipped' => 0];
 
   $user_id = $sconf['user_id'];
   $court_id = $sconf['court_id'];
@@ -1194,10 +1206,17 @@ function materialize_series(string $series_id, string $start_date, string $end_d
       $end   = (clone $start)->modify('+' . $duration . ' minutes');
       $sql = "SELECT * FROM book_courts.create_booking(:u,:c,:s::timestamptz,:e::timestamptz,'series',:sid,:title)";
       pdo()->prepare($sql)->execute([':u' => $user_id, ':c' => $court_id, ':s' => $start->format('c'), ':e' => $end->format('c'), ':sid' => $series_id, ':title' => $series_title]);
+      $created++;
     } catch (Throwable $e) {
-      continue;
+      // Einzelne Termine koennen scheitern (etwa durch einen zwischenzeitlich
+      // entstandenen Konflikt). Nicht still verschlucken - sonst haelt der Admin
+      // eine lueckenhafte Serie fuer vollstaendig.
+      error_log('book_courts materialize_series: ' . $e->getMessage());
+      $skipped++;
     }
   }
+
+  return ['created' => $created, 'skipped' => $skipped];
 }
 
 function scripts_block(): string

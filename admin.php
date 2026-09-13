@@ -156,7 +156,8 @@ if (!any_user_exists()) {
                 header('Location: ?action=login');
                 exit;
             } catch (PDOException $e) {
-                flash('Fehler: ' . $e->getMessage(), 'error');
+                error_log('book_courts bootstrap: ' . $e->getMessage());
+                flash('Der Admin konnte nicht angelegt werden. Existiert die E-Mail bereits?', 'error');
             }
         }
     }
@@ -346,6 +347,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ?action=courts');
             exit;
         }
+    } catch (PDOException $e) {
+        // Rohe DB-Meldungen verraten Schema-Details - ins Log, nicht in die UI.
+        error_log('book_courts admin: ' . $e->getMessage());
+        if ($e->getCode() === '23503') {
+            // foreign_key_violation - typischerweise Loeschen trotz vorhandener Buchungen
+            flash('Loeschen nicht moeglich: An diesem Eintrag haengen noch Buchungen. Setze ihn stattdessen auf inaktiv.', 'error');
+        } elseif ($e->getCode() === '23505') {
+            // unique_violation - E-Mail oder Platzname doppelt
+            flash('Es gibt bereits einen Eintrag mit dieser E-Mail bzw. diesem Namen.', 'error');
+        } else {
+            flash('Datenbankfehler. Bitte erneut versuchen.', 'error');
+        }
+        header('Location: ?action=' . $action);
+        exit;
     } catch (Exception $e) {
         flash('Fehler: ' . $e->getMessage(), 'error');
         header('Location: ?action=' . $action);
