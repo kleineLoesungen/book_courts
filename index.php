@@ -9,9 +9,10 @@
  *******************************************************/
 
 declare(strict_types=1);
-session_start();
 
 require_once __DIR__ . '/config.php';
+
+start_secure_session();
 
 /* =======================
    Helpers / Bootstrap
@@ -215,6 +216,8 @@ if ($action === 'login') {
     } elseif (!password_verify($pass, $u['password_hash'])) {
       flash('Passwort falsch.', 'error');
     } else {
+      // Session-Fixation verhindern: nach erfolgreichem Login neue Session-ID vergeben
+      session_regenerate_id(true);
       $_SESSION['user'] = ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['full_name'], 'role' => $u['role']];
       header('Location: index.php');
       exit;
@@ -235,7 +238,7 @@ if ($action === 'login') {
   exit;
 }
 if ($action === 'logout') {
-  session_destroy();
+  destroy_session();
   header('Location: index.php');
   exit;
 }
@@ -496,6 +499,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($op === 'create_series') {
+      // Serien sind Admins vorbehalten. Das Formular wird zwar nur Admins angezeigt,
+      // der POST-Handler muss die Rolle aber selbst pruefen - sonst kann jedes
+      // eingeloggte Mitglied per Handrequest einen Platz dauerhaft blockieren.
+      if (!is_admin()) throw new Exception('Nur Administratoren duerfen Serien anlegen.');
+
       pdo()->query("SELECT * FROM book_courts.prune_old(14)")->fetch();
 
       $court_id   = $_POST['court_id'] ?? '';
@@ -826,7 +834,8 @@ if ($selected) {
         $prevEndDt = $endDt;
 
         // --- bisherige Karten-Ausgabe ---
-        $who   = ($r['full_name']);
+        // Der Kalender ist oeffentlich einsehbar - ohne Login nur Initialen zeigen.
+        $who   = is_logged_in() ? $r['full_name'] : anonymize_name($r['full_name']);
         $sTime = $startDt->format('H:i');
         $eTime = $endDt->format('H:i');
 

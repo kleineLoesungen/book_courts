@@ -9,9 +9,10 @@
  *******************************************************/
 
 declare(strict_types=1);
-session_start();
 
 require_once __DIR__ . '/config.php';
+
+start_secure_session();
 
 /* =======================
    Helpers / Bootstrap
@@ -208,6 +209,8 @@ if ($action === 'login') {
         } elseif (!password_verify($pass, $u['password_hash'])) {
             flash('Falsches Passwort.', 'error');
         } else {
+            // Session-Fixation verhindern: nach erfolgreichem Login neue Session-ID vergeben
+            session_regenerate_id(true);
             $_SESSION['admin_user'] = ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['full_name'], 'role' => $u['role']];
             header('Location: ?action=home');
             exit;
@@ -227,7 +230,7 @@ if ($action === 'login') {
     exit;
 }
 if ($action === 'logout') {
-    session_destroy();
+    destroy_session();
     header('Location: ?action=login');
     exit;
 }

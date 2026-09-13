@@ -1,7 +1,18 @@
-# Zugriff auf sensible Dateien verhindern
-<FilesMatch "^(\.env|conf\.php|pg\.sql)$">
+# Zugriff auf sensible Dateien verhindern.
+# Das Muster deckt bewusst alle .env-Varianten ab (.env, .env.example, .env.deploy).
+<FilesMatch "^(\.env.*|conf\.php|pg\.sql|deploy\.sh|.*\.md)$">
     Require all denied
 </FilesMatch>
+
+# Sicherheits-Header
+<IfModule mod_headers.c>
+    # Verhindert MIME-Sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    # Verhindert Einbettung in fremde Frames (Clickjacking)
+    Header always set X-Frame-Options "DENY"
+    # Referrer nur an die eigene Domain senden
+    Header always set Referrer-Policy "same-origin"
+</IfModule>
 
 # index.php als Standard-Startseite
 DirectoryIndex index.php
