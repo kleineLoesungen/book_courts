@@ -455,6 +455,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         throw new Exception('Nur 30 oder 60 Minuten erlaubt.');
       }
 
+      // Buchungen in der Vergangenheit sperren. Admins duerfen nachtragen -
+      // fuer sie ist der Kalender auch ein Verwaltungswerkzeug.
+      if (!is_admin() && $startDt < new DateTime('now', $tzObj)) {
+        throw new Exception('Buchungen in der Vergangenheit sind nicht moeglich.');
+      }
+
       $endDt = (clone $startDt)->modify('+' . $duration . ' minutes');
 
       $p_user = current_user()['id'];
@@ -882,8 +888,15 @@ if (is_logged_in()) {
 
   // Datum
   $prefDate = $selected ?: $today;
+  // Ohne Adminrechte nicht in die Vergangenheit: Vorauswahl anheben und Feld begrenzen.
+  // ISO-Datumsstrings lassen sich direkt lexikografisch vergleichen.
+  $minAttr = '';
+  if (!is_admin()) {
+    if ($prefDate < $today) $prefDate = $today;
+    $minAttr = ' min="' . h($today) . '"';
+  }
   echo '<label class="block text-sm">Datum';
-  echo '  <input class="mt-1 dt-compact rounded-xl border w-full max-w-[300px] mx-auto block" type="date" name="book_date" value="' . h($prefDate) . '" appearance-none required>';
+  echo '  <input class="mt-1 dt-compact rounded-xl border w-full max-w-[300px] mx-auto block" type="date" name="book_date" value="' . h($prefDate) . '"' . $minAttr . ' appearance-none required>';
   echo '</label>';
 
   // Start/Ende (30 min Raster)
