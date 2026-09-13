@@ -17,19 +17,7 @@ start_secure_session();
 /* =======================
    Helpers / Bootstrap
    ======================= */
-function pdo(): PDO
-{
-  static $pdo = null;
-  if ($pdo === null) {
-    global $dsn, $DB_USER, $DB_PASS, $DB_SCHEMA;
-    $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
-      PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-      PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-    $pdo->exec('SET search_path TO "' . $DB_SCHEMA . '"');
-  }
-  return $pdo;
-}
+/* pdo() liegt in config.php - gemeinsam mit admin.php genutzt. */
 function csrf_token(): string
 {
   if (empty($_SESSION['csrf'])) {
@@ -203,24 +191,38 @@ if ($action === 'login') {
     csrf_check();
     $email = trim($_POST['email'] ?? '');
     $pass  = $_POST['password'] ?? '';
-    $sql = "SELECT id, email, password_hash, full_name, role, is_active
-            FROM book_courts.app_user
-            WHERE lower(email)=lower(:e) LIMIT 1";
-    $st = pdo()->prepare($sql);
-    $st->execute([':e' => $email]);
-    $u = $st->fetch();
-    if (!$u) {
-      flash('Nutzer nicht gefunden.', 'error');
-    } elseif (!$u['is_active']) {
-      flash('Nutzer ist deaktiviert.', 'error');
-    } elseif (!password_verify($pass, $u['password_hash'])) {
-      flash('Passwort falsch.', 'error');
+    if (login_is_blocked($email)) {
+      flash('Zu viele Fehlversuche. Bitte in ' . LOGIN_WINDOW_MINUTES . ' Minuten erneut versuchen.', 'error');
     } else {
-      // Session-Fixation verhindern: nach erfolgreichem Login neue Session-ID vergeben
-      session_regenerate_id(true);
-      $_SESSION['user'] = ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['full_name'], 'role' => $u['role']];
-      header('Location: index.php');
-      exit;
+      $sql = "SELECT id, email, password_hash, full_name, role, is_active
+              FROM book_courts.app_user
+              WHERE lower(email)=lower(:e) LIMIT 1";
+      $st = pdo()->prepare($sql);
+      $st->execute([':e' => $email]);
+      $u = $st->fetch();
+
+      // Einheitliche Meldung fuer jeden Fehlerfall: unterschiedliche Texte wuerden
+      // verraten, welche E-Mail-Adressen im Verein registriert sind.
+      if (!$u) {
+        dummy_password_verify($pass);
+        login_record_failure($email);
+        flash('E-Mail oder Passwort falsch.', 'error');
+      } else {
+        // Passwort immer pruefen, auch bei deaktiviertem Konto - sonst verraet
+        // die Antwortzeit den Unterschied.
+        $pass_ok = password_verify($pass, $u['password_hash']);
+        if (!$pass_ok || !$u['is_active']) {
+          login_record_failure($email);
+          flash('E-Mail oder Passwort falsch.', 'error');
+        } else {
+          login_clear_failures($email);
+          // Session-Fixation verhindern: nach erfolgreichem Login neue Session-ID vergeben
+          session_regenerate_id(true);
+          $_SESSION['user'] = ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['full_name'], 'role' => $u['role']];
+          header('Location: index.php');
+          exit;
+        }
+      }
     }
   }
   echo html_head('Login');

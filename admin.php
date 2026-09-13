@@ -17,19 +17,7 @@ start_secure_session();
 /* =======================
    Helpers / Bootstrap
    ======================= */
-function pdo(): PDO
-{
-    static $pdo = null;
-    if ($pdo === null) {
-        global $dsn, $DB_USER, $DB_PASS, $DB_SCHEMA;
-        $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-        $pdo->exec('SET search_path TO "' . $DB_SCHEMA . '"');
-    }
-    return $pdo;
-}
+/* pdo() liegt in config.php - gemeinsam mit index.php genutzt. */
 function h(string $s): string
 {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -196,24 +184,37 @@ if ($action === 'login') {
         csrf_check();
         $email = trim($_POST['email'] ?? '');
         $pass  = $_POST['password'] ?? '';
-        $sql = "SELECT id, email, password_hash, full_name, role, is_active
-                FROM book_courts.app_user
-                WHERE lower(email)=lower(:email) LIMIT 1";
-        $st = pdo()->prepare($sql);
-        $st->execute([':email' => $email]);
-        $u = $st->fetch();
-        if (!$u || $u['role'] !== 'admin') {
-            flash('Kein Admin mit dieser E-Mail.', 'error');
-        } elseif (!$u['is_active']) {
-            flash('Admin ist deaktiviert.', 'error');
-        } elseif (!password_verify($pass, $u['password_hash'])) {
-            flash('Falsches Passwort.', 'error');
+        if (login_is_blocked($email)) {
+            flash('Zu viele Fehlversuche. Bitte in ' . LOGIN_WINDOW_MINUTES . ' Minuten erneut versuchen.', 'error');
         } else {
-            // Session-Fixation verhindern: nach erfolgreichem Login neue Session-ID vergeben
-            session_regenerate_id(true);
-            $_SESSION['admin_user'] = ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['full_name'], 'role' => $u['role']];
-            header('Location: ?action=home');
-            exit;
+            $sql = "SELECT id, email, password_hash, full_name, role, is_active
+                    FROM book_courts.app_user
+                    WHERE lower(email)=lower(:email) LIMIT 1";
+            $st = pdo()->prepare($sql);
+            $st->execute([':email' => $email]);
+            $u = $st->fetch();
+
+            // Einheitliche Meldung fuer jeden Fehlerfall - auch fuer "existiert, ist
+            // aber kein Admin". Sonst laesst sich ueber diese Maske herausfinden, wer
+            // im Verein Administrator ist.
+            if (!$u) {
+                dummy_password_verify($pass);
+                login_record_failure($email);
+                flash('E-Mail oder Passwort falsch.', 'error');
+            } else {
+                $pass_ok = password_verify($pass, $u['password_hash']);
+                if (!$pass_ok || $u['role'] !== 'admin' || !$u['is_active']) {
+                    login_record_failure($email);
+                    flash('E-Mail oder Passwort falsch.', 'error');
+                } else {
+                    login_clear_failures($email);
+                    // Session-Fixation verhindern: nach erfolgreichem Login neue Session-ID vergeben
+                    session_regenerate_id(true);
+                    $_SESSION['admin_user'] = ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['full_name'], 'role' => $u['role']];
+                    header('Location: ?action=home');
+                    exit;
+                }
+            }
         }
     }
     echo html_head('Admin Login');

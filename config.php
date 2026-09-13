@@ -153,4 +153,100 @@ function destroy_session(): void
     session_destroy();
 }
 
+/**
+ * PDO-Singleton.
+ *
+ * Liegt hier, damit index.php und admin.php dieselbe Verbindung und denselben
+ * search_path verwenden - und damit die Login-Helfer weiter unten die Datenbank
+ * erreichen.
+ */
+function pdo(): PDO
+{
+    static $pdo = null;
+    if ($pdo === null) {
+        global $dsn, $DB_USER, $DB_PASS, $DB_SCHEMA;
+
+        // Schema-Namen validieren: er landet per String-Interpolation im SET-Befehl,
+        // denn fuer Bezeichner gibt es keine Platzhalter.
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $DB_SCHEMA)) {
+            throw new RuntimeException("Ungueltiger Schema-Name in DB_SCHEMA: {$DB_SCHEMA}");
+        }
+
+        $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+        $pdo->exec('SET search_path TO "' . $DB_SCHEMA . '"');
+    }
+    return $pdo;
+}
+
+/* =======================
+   Brute-Force-Schutz
+   ======================= */
+
+const LOGIN_WINDOW_MINUTES = 15;  // Beobachtungsfenster
+const LOGIN_MAX_PER_EMAIL  = 5;   // Fehlversuche je Konto im Fenster
+const LOGIN_MAX_PER_IP     = 20;  // Fehlversuche je IP im Fenster
+
+function client_ip(): string
+{
+    // Bewusst nur REMOTE_ADDR: X-Forwarded-For ist vom Client faelschbar.
+    return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+}
+
+/**
+ * Ist der Login fuer dieses Konto oder diese IP momentan gesperrt?
+ *
+ * Zwei Schwellen: die niedrige je Konto stoppt gezieltes Raten, die hohe je IP
+ * bremst das Durchprobieren vieler Konten - ohne dass ein einzelner Fehlversuch
+ * den ganzen Verein aussperrt, der oft hinter derselben IP sitzt.
+ */
+function login_is_blocked(string $email): bool
+{
+    $sql = "SELECT
+              count(*) FILTER (WHERE lower(email) = lower(:email)) AS by_email,
+              count(*) FILTER (WHERE ip = :ip) AS by_ip
+            FROM login_attempt
+            WHERE attempted_at > now() - make_interval(mins => :win::int)";
+    $st = pdo()->prepare($sql);
+    $st->execute([':email' => $email, ':ip' => client_ip(), ':win' => LOGIN_WINDOW_MINUTES]);
+    $row = $st->fetch();
+
+    return ((int) $row['by_email'] >= LOGIN_MAX_PER_EMAIL)
+        || ((int) $row['by_ip'] >= LOGIN_MAX_PER_IP);
+}
+
+function login_record_failure(string $email): void
+{
+    pdo()->prepare("INSERT INTO login_attempt (email, ip) VALUES (:email, :ip)")
+        ->execute([':email' => $email, ':ip' => client_ip()]);
+
+    // Gelegentlich aufraeumen, damit die Tabelle nicht unbegrenzt waechst.
+    if (random_int(1, 20) === 1) {
+        pdo()->exec("DELETE FROM login_attempt WHERE attempted_at < now() - interval '1 day'");
+    }
+}
+
+function login_clear_failures(string $email): void
+{
+    pdo()->prepare("DELETE FROM login_attempt WHERE lower(email) = lower(:email)")
+        ->execute([':email' => $email]);
+}
+
+/**
+ * Verbrennt denselben Rechenaufwand wie eine echte Passwortpruefung.
+ *
+ * Ohne das antwortet der Login bei unbekannter E-Mail messbar schneller und
+ * verraet damit, welche Adressen registriert sind.
+ */
+function dummy_password_verify(string $password): void
+{
+    static $hash = null;
+    if ($hash === null) {
+        $hash = password_hash('dummy', PASSWORD_DEFAULT);
+    }
+    password_verify($password, $hash);
+}
+
 load_env_config();

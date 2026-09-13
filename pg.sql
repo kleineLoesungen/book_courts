@@ -105,6 +105,17 @@ CREATE TABLE IF NOT EXISTS recurring_series (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Fehlgeschlagene Login-Versuche. Nur Fehlschlaege werden protokolliert;
+-- ein erfolgreicher Login raeumt die Eintraege der betroffenen E-Mail ab.
+CREATE TABLE IF NOT EXISTS login_attempt (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS login_attempt_email_idx ON login_attempt (lower(email), attempted_at);
+CREATE INDEX IF NOT EXISTS login_attempt_ip_idx ON login_attempt (ip, attempted_at);
+
 CREATE TABLE IF NOT EXISTS recurring_exception (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   series_id UUID NOT NULL REFERENCES recurring_series(id) ON DELETE CASCADE,
