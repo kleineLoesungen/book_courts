@@ -68,7 +68,7 @@ function render_flash(): void
    ======================= */
 function any_user_exists(): bool
 {
-    $stmt = pdo()->query("SELECT EXISTS(SELECT 1 FROM book_courts.app_user) AS e");
+    $stmt = pdo()->query("SELECT EXISTS(SELECT 1 FROM app_user) AS e");
     return (bool)$stmt->fetchColumn();
 }
 
@@ -149,7 +149,7 @@ if (!any_user_exists()) {
         } else {
             try {
                 $hash = password_hash($pass1, PASSWORD_DEFAULT);
-                $sql = "INSERT INTO book_courts.app_user (email, password_hash, full_name, role, is_active)
+                $sql = "INSERT INTO app_user (email, password_hash, full_name, role, is_active)
                         VALUES (:email,:hash,:name,'admin',TRUE)";
                 pdo()->prepare($sql)->execute([':email' => $email, ':hash' => $hash, ':name' => $name]);
                 flash('Erster Admin angelegt. Bitte einloggen.');
@@ -189,7 +189,7 @@ if ($action === 'login') {
             flash('Zu viele Fehlversuche. Bitte in ' . LOGIN_WINDOW_MINUTES . ' Minuten erneut versuchen.', 'error');
         } else {
             $sql = "SELECT id, email, password_hash, full_name, role, is_active
-                    FROM book_courts.app_user
+                    FROM app_user
                     WHERE lower(email)=lower(:email) LIMIT 1";
             $st = pdo()->prepare($sql);
             $st->execute([':email' => $email]);
@@ -249,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Termine stornieren
         if ($op === 'cancel_booking') {
             $id = $_POST['id'] ?? '';
-            pdo()->prepare("UPDATE book_courts.booking SET status='canceled' WHERE id::text=:id")
+            pdo()->prepare("UPDATE booking SET status='canceled' WHERE id::text=:id")
                 ->execute([':id' => $id]);
             flash('Termin storniert.');
             header('Location: ?action=home');
@@ -258,9 +258,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Serie stornieren (deaktivieren + Buchungen canceln)
         if ($op === 'cancel_series') {
             $series_id = $_POST['series_id'] ?? '';
-            pdo()->prepare("UPDATE book_courts.recurring_series SET is_active=FALSE WHERE id::text=:id")
+            pdo()->prepare("UPDATE recurring_series SET is_active=FALSE WHERE id::text=:id")
                 ->execute([':id' => $series_id]);
-            pdo()->prepare("UPDATE book_courts.booking SET status='canceled' WHERE series_id::text=:id")
+            pdo()->prepare("UPDATE booking SET status='canceled' WHERE series_id::text=:id")
                 ->execute([':id' => $series_id]);
             flash('Serie und zugehörige Termine storniert.');
             header('Location: ?action=home');
@@ -278,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($pass === '') throw new Exception('Passwort fehlt.');
             if (!in_array($role, ['user', 'admin'], true)) $role = 'user';
             $hash = password_hash($pass, PASSWORD_DEFAULT);
-            $sql = "INSERT INTO book_courts.app_user (email,password_hash,full_name,role,is_active)
+            $sql = "INSERT INTO app_user (email,password_hash,full_name,role,is_active)
                     VALUES (:e,:h,:n,:r,TRUE)";
             pdo()->prepare($sql)->execute([':e' => $email, ':h' => $hash, ':n' => $name, ':r' => $role]);
             flash('Nutzer angelegt.');
@@ -292,7 +292,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $role = $_POST['role'] ?? 'user';
             $active = isset($_POST['is_active']) ? 'TRUE' : 'FALSE';
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new Exception('Ungültige E-Mail.');
-            $sql = "UPDATE book_courts.app_user SET email=:e, full_name=:n, role=:r, is_active={$active} WHERE id::text=:id";
+            $sql = "UPDATE app_user SET email=:e, full_name=:n, role=:r, is_active={$active} WHERE id::text=:id";
             pdo()->prepare($sql)->execute([':e' => $email, ':n' => $name, ':r' => $role, ':id' => $id]);
             flash('Nutzer aktualisiert.');
             header('Location: ?action=users');
@@ -303,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pass = $_POST['password'] ?? '';
             if ($pass === '') throw new Exception('Neues Passwort fehlt.');
             $hash = password_hash($pass, PASSWORD_DEFAULT);
-            pdo()->prepare("UPDATE book_courts.app_user SET password_hash=:h WHERE id::text=:id")
+            pdo()->prepare("UPDATE app_user SET password_hash=:h WHERE id::text=:id")
                 ->execute([':h' => $hash, ':id' => $id]);
             flash('Passwort gesetzt.');
             header('Location: ?action=users');
@@ -311,7 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($op === 'user_delete') {
             $id = $_POST['id'] ?? '';
-            pdo()->prepare("DELETE FROM book_courts.app_user WHERE id::text=:id")->execute([':id' => $id]);
+            pdo()->prepare("DELETE FROM app_user WHERE id::text=:id")->execute([':id' => $id]);
             flash('Nutzer gelöscht.');
             header('Location: ?action=users');
             exit;
@@ -322,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = trim($_POST['name'] ?? '');
             $loc = trim($_POST['location'] ?? '');
             if ($name === '') throw new Exception('Name fehlt.');
-            pdo()->prepare("INSERT INTO book_courts.court (name,location,is_active) VALUES (:n,:l,TRUE)")
+            pdo()->prepare("INSERT INTO court (name,location,is_active) VALUES (:n,:l,TRUE)")
                 ->execute([':n' => $name, ':l' => $loc]);
             flash('Platz angelegt.');
             header('Location: ?action=courts');
@@ -334,7 +334,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $loc = trim($_POST['location'] ?? '');
             $active = isset($_POST['is_active']) ? 'TRUE' : 'FALSE';
             if ($name === '') throw new Exception('Name fehlt.');
-            pdo()->prepare("UPDATE book_courts.court SET name=:n, location=:l, is_active={$active} WHERE id::text=:id")
+            pdo()->prepare("UPDATE court SET name=:n, location=:l, is_active={$active} WHERE id::text=:id")
                 ->execute([':n' => $name, ':l' => $loc, ':id' => $id]);
             flash('Platz aktualisiert.');
             header('Location: ?action=courts');
@@ -342,7 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($op === 'court_delete') {
             $id = $_POST['id'] ?? '';
-            pdo()->prepare("DELETE FROM book_courts.court WHERE id::text=:id")->execute([':id' => $id]);
+            pdo()->prepare("DELETE FROM court WHERE id::text=:id")->execute([':id' => $id]);
             flash('Platz gelöscht.');
             header('Location: ?action=courts');
             exit;
@@ -387,9 +387,9 @@ switch ($action) {
         $sqlB = "SELECT b.id, b.user_id, b.court_id, b.status, b.source, b.series_id, b.title,
                         lower(b.time_span) AS start_at, upper(b.time_span) AS end_at,
                         u.full_name, u.email, c.name AS court_name
-                 FROM book_courts.booking b
-                 JOIN book_courts.app_user u ON u.id=b.user_id
-                 JOIN book_courts.court c ON c.id=b.court_id
+                 FROM booking b
+                 JOIN app_user u ON u.id=b.user_id
+                 JOIN court c ON c.id=b.court_id
                  WHERE b.status='active' AND upper(b.time_span) >= :now
                  ORDER BY start_at ASC";
         $stB = pdo()->prepare($sqlB);
@@ -398,7 +398,7 @@ switch ($action) {
 
         // Serien
         $sqlS = "SELECT id, user_id, court_id, title, weekday, start_time, duration_min, timezone, start_date, end_date, is_active
-                 FROM book_courts.recurring_series
+                 FROM recurring_series
                  WHERE is_active=TRUE
                  ORDER BY start_date DESC";
         $series = pdo()->query($sqlS)->fetchAll();
@@ -511,12 +511,12 @@ switch ($action) {
             echo '<p class="text-gray-500">Keine aktiven Serien.</p>';
         } else {
             // Court-Namen map für Anzeige
-            $courts = pdo()->query("SELECT id, name FROM book_courts.court")->fetchAll();
+            $courts = pdo()->query("SELECT id, name FROM court")->fetchAll();
             $cmap = [];
             foreach ($courts as $c) $cmap[$c['id']] = $c['name'];
 
             // User-Namen map
-            $users = pdo()->query("SELECT id, full_name FROM book_courts.app_user")->fetchAll();
+            $users = pdo()->query("SELECT id, full_name FROM app_user")->fetchAll();
             $umap = [];
             foreach ($users as $u) $umap[$u['id']] = $u['full_name'];
 
@@ -629,7 +629,7 @@ switch ($action) {
 
         // Create/Update/Reset/Delete werden im POST-Handler oben abgewickelt
         $users = pdo()->query("SELECT id, email, full_name, role, is_active, created_at
-                               FROM book_courts.app_user
+                               FROM app_user
                                ORDER BY created_at DESC")->fetchAll();
 
         echo '<section class="bg-white rounded-2xl shadow p-3 space-y-3">';
@@ -699,7 +699,7 @@ switch ($action) {
 
         // CRUD über POST oben
         $courts = pdo()->query("SELECT id, name, location, is_active, created_at
-                                FROM book_courts.court
+                                FROM court
                                 ORDER BY created_at DESC")->fetchAll();
 
         echo '<section class="bg-white rounded-2xl shadow p-3 space-y-3">';

@@ -195,7 +195,7 @@ if ($action === 'login') {
       flash('Zu viele Fehlversuche. Bitte in ' . LOGIN_WINDOW_MINUTES . ' Minuten erneut versuchen.', 'error');
     } else {
       $sql = "SELECT id, email, password_hash, full_name, role, is_active
-              FROM book_courts.app_user
+              FROM app_user
               WHERE lower(email)=lower(:e) LIMIT 1";
       $st = pdo()->prepare($sql);
       $st->execute([':e' => $email]);
@@ -274,7 +274,7 @@ if (($_GET['action'] ?? '') === 'free_courts') {
     $pdo = pdo();
     // 1. erst versuchen, über Funktion zu gehen
     try {
-      $st = $pdo->prepare("SELECT id, name FROM book_courts.free_courts(:s::timestamptz,:e::timestamptz)");
+      $st = $pdo->prepare("SELECT id, name FROM free_courts(:s::timestamptz,:e::timestamptz)");
       $st->execute([':s' => $s->format('c'), ':e' => $e->format('c')]);
       $rows = $st->fetchAll();
       echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
@@ -284,11 +284,11 @@ if (($_GET['action'] ?? '') === 'free_courts') {
       if ($ee->getCode() !== '42883') throw $ee;
       $sql = "
         SELECT c.id, c.name
-        FROM book_courts.court c
+        FROM court c
         WHERE c.is_active
           AND NOT EXISTS (
             SELECT 1
-            FROM book_courts.booking b
+            FROM booking b
             WHERE b.court_id = c.id
               AND b.status = 'active'
               AND b.time_span && tstzrange(:s::timestamptz, :e::timestamptz, '[)')
@@ -376,9 +376,9 @@ SELECT
     ) FILTER (WHERE b.id IS NOT NULL),
     '[]'::json
   ) AS conflict_starts
-FROM book_courts.court c
+FROM court c
 LEFT JOIN occ o ON TRUE
-LEFT JOIN book_courts.booking b
+LEFT JOIN booking b
   ON b.court_id = c.id
  AND b.status   = 'active'
  AND o.rng IS NOT NULL
@@ -464,7 +464,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $endDt = (clone $startDt)->modify('+' . $duration . ' minutes');
 
       $p_user = current_user()['id'];
-      $sql = "SELECT * FROM book_courts.create_booking(:u,:c,:s::timestamptz,:e::timestamptz,'single',NULL,:t)";
+      $sql = "SELECT * FROM create_booking(:u,:c,:s::timestamptz,:e::timestamptz,'single',NULL,:t)";
       pdo()->prepare($sql)->execute([
         ':u' => $p_user,
         ':c' => $court_id,
@@ -479,13 +479,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($op === 'cancel_booking') {
       $booking_id = $_POST['id'] ?? '';
-      $q = "SELECT b.id,b.user_id FROM book_courts.booking b WHERE b.id::text=:id";
+      $q = "SELECT b.id,b.user_id FROM booking b WHERE b.id::text=:id";
       $s = pdo()->prepare($q);
       $s->execute([':id' => $booking_id]);
       $b = $s->fetch();
       if (!$b) throw new Exception('Buchung nicht gefunden.');
       if (!is_admin() && $b['user_id'] !== current_user()['id']) throw new Exception('Keine Berechtigung.');
-      pdo()->prepare("UPDATE book_courts.booking SET status='canceled' WHERE id::text=:id")->execute([':id' => $booking_id]);
+      pdo()->prepare("UPDATE booking SET status='canceled' WHERE id::text=:id")->execute([':id' => $booking_id]);
       flash('Buchung storniert.');
       header('Location: index.php?view=week&date=' . $date . ($selected ? '&selected=' . $selected : ''));
       exit;
@@ -493,14 +493,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($op === 'cancel_series') {
       $series_id = $_POST['series_id'] ?? '';
-      $q = "SELECT user_id FROM book_courts.recurring_series WHERE id::text=:id";
+      $q = "SELECT user_id FROM recurring_series WHERE id::text=:id";
       $s = pdo()->prepare($q);
       $s->execute([':id' => $series_id]);
       $row = $s->fetch();
       if (!$row) throw new Exception('Serie nicht gefunden.');
       if (!is_admin() && $row['user_id'] !== current_user()['id']) throw new Exception('Keine Berechtigung.');
-      pdo()->prepare("UPDATE book_courts.recurring_series SET is_active=FALSE WHERE id::text=:id")->execute([':id' => $series_id]);
-      pdo()->prepare("UPDATE book_courts.booking SET status='canceled' WHERE series_id::text=:id")->execute([':id' => $series_id]);
+      pdo()->prepare("UPDATE recurring_series SET is_active=FALSE WHERE id::text=:id")->execute([':id' => $series_id]);
+      pdo()->prepare("UPDATE booking SET status='canceled' WHERE series_id::text=:id")->execute([':id' => $series_id]);
       flash('Serie und zugehörige Termine wurden storniert.');
       header('Location: index.php?view=week&date=' . $date . '&selected=' . $selected);
       exit;
@@ -574,7 +574,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     )
     SELECT COALESCE(COUNT(b.id),0) AS conflicts
     FROM occ o
-    JOIN book_courts.booking b
+    JOIN booking b
       ON b.court_id = :court_id
      AND b.status   = 'active'
      AND b.time_span && o.rng
@@ -594,7 +594,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
 
       // --- Serie anlegen (jetzt konfliktfrei) ---
-      $sql = "INSERT INTO book_courts.recurring_series
+      $sql = "INSERT INTO recurring_series
           (user_id,court_id,title,weekday,start_time,duration_min,timezone,start_date,end_date,is_active)
           VALUES (:u,:c,:title,:w,:t,:d,:tz,:sd,:ed,TRUE)
           RETURNING id";
@@ -635,7 +635,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // Platznamen auflösen (falls möglich)
       $courtName = $courtId;
       try {
-        $st = pdo()->prepare("SELECT name FROM book_courts.court WHERE id::text = :id LIMIT 1");
+        $st = pdo()->prepare("SELECT name FROM court WHERE id::text = :id LIMIT 1");
         $st->execute([':id' => $courtId]);
         $name = $st->fetchColumn();
         if ($name) $courtName = $name;
@@ -667,7 +667,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* =======================
    Daten laden
    ======================= */
-$courts = pdo()->query("SELECT id, name, is_active FROM book_courts.court ORDER BY name")->fetchAll();
+$courts = pdo()->query("SELECT id, name, is_active FROM court ORDER BY name")->fetchAll();
 
 /* Woche (Mo–So) relativ zum gewählten Datum */
 $weekStart = (new DateTime($date, $tz))->modify('monday this week')->setTime(0, 0, 0);
@@ -690,9 +690,9 @@ $wParams = [':s' => $weekStart->format('c'), ':e' => $weekEnd->format('c')];
 $wSql = "SELECT b.id,b.user_id,b.court_id,b.status,b.source,b.series_id,b.title,
                 lower(b.time_span) AS start_at, upper(b.time_span) AS end_at,
                 u.full_name, c.name AS court_name
-         FROM book_courts.booking b
-         JOIN book_courts.app_user u ON u.id=b.user_id
-         JOIN book_courts.court c ON c.id=b.court_id
+         FROM booking b
+         JOIN app_user u ON u.id=b.user_id
+         JOIN court c ON c.id=b.court_id
          WHERE b.status='active' AND b.time_span && tstzrange(:s::timestamptz,:e::timestamptz,'[)')";
 $wSql .= " ORDER BY start_at";
 $wBookings = pdo()->prepare($wSql);
@@ -715,9 +715,9 @@ if ($selected) {
   $sqlBookings = "SELECT b.id,b.user_id,b.court_id,b.status,b.source,b.series_id,b.title,
                          lower(b.time_span) AS start_at, upper(b.time_span) AS end_at,
                          u.full_name, u.email, c.name AS court_name
-                  FROM book_courts.booking b
-                  JOIN book_courts.app_user u ON u.id=b.user_id
-                  JOIN book_courts.court c ON c.id=b.court_id
+                  FROM booking b
+                  JOIN app_user u ON u.id=b.user_id
+                  JOIN court c ON c.id=b.court_id
                   WHERE b.status='active' AND b.time_span && tstzrange(:s::timestamptz,:e::timestamptz,'[)')";
   $sqlBookings .= " ORDER BY c.name, start_at";
   $stDay = pdo()->prepare($sqlBookings);
@@ -1171,7 +1171,7 @@ function materialize_series(string $series_id, string $start_date, string $end_d
   $skipped = 0;
 
   $sql = "SELECT user_id,court_id,title,weekday,start_time,duration_min,timezone
-          FROM book_courts.recurring_series WHERE id::text=:id";
+          FROM recurring_series WHERE id::text=:id";
   $s = pdo()->prepare($sql);
   $s->execute([':id' => $series_id]);
   $sconf = $s->fetch();
@@ -1197,14 +1197,14 @@ function materialize_series(string $series_id, string $start_date, string $end_d
 
   for ($d = clone $from; $d <= $to; $d->modify('+7 day')) {
     $occDate = $d->format('Y-m-d');
-    $ex = pdo()->prepare("SELECT canceled FROM book_courts.recurring_exception WHERE series_id::text=:sid AND occur_date=:d");
+    $ex = pdo()->prepare("SELECT canceled FROM recurring_exception WHERE series_id::text=:sid AND occur_date=:d");
     $ex->execute([':sid' => $series_id, ':d' => $occDate]);
     $row = $ex->fetch();
     if ($row && $row['canceled']) continue;
     try {
       $start = $buildStart($occDate, $start_time, $tz);
       $end   = (clone $start)->modify('+' . $duration . ' minutes');
-      $sql = "SELECT * FROM book_courts.create_booking(:u,:c,:s::timestamptz,:e::timestamptz,'series',:sid,:title)";
+      $sql = "SELECT * FROM create_booking(:u,:c,:s::timestamptz,:e::timestamptz,'series',:sid,:title)";
       pdo()->prepare($sql)->execute([':u' => $user_id, ':c' => $court_id, ':s' => $start->format('c'), ':e' => $end->format('c'), ':sid' => $series_id, ':title' => $series_title]);
       $created++;
     } catch (Throwable $e) {
