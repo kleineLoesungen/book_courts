@@ -105,6 +105,13 @@ CREATE TABLE IF NOT EXISTS recurring_series (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Zeitstempel wiederkehrender Wartungsaufgaben, damit prune_old nicht bei jeder
+-- Buchung laufen muss, sondern hoechstens einmal taeglich.
+CREATE TABLE IF NOT EXISTS maintenance (
+  task TEXT PRIMARY KEY,
+  last_run TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Fehlgeschlagene Login-Versuche. Nur Fehlschlaege werden protokolliert;
 -- ein erfolgreicher Login raeumt die Eintraege der betroffenen E-Mail ab.
 CREATE TABLE IF NOT EXISTS login_attempt (

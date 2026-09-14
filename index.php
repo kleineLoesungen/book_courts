@@ -428,7 +428,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $op = $_POST['op'] ?? '';
   try {
     if ($op === 'create_booking') {
-      pdo()->query("SELECT * FROM book_courts.prune_old(14)")->fetch();
+      prune_old_if_due(14);
 
       $court_id   = $_POST['court_id'] ?? '';
       $title      = trim($_POST['title'] ?? '');
@@ -512,7 +512,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // eingeloggte Mitglied per Handrequest einen Platz dauerhaft blockieren.
       if (!is_admin()) throw new Exception('Nur Administratoren duerfen Serien anlegen.');
 
-      pdo()->query("SELECT * FROM book_courts.prune_old(14)")->fetch();
+      prune_old_if_due(14);
 
       $court_id   = $_POST['court_id'] ?? '';
       $title      = trim($_POST['title'] ?? '');

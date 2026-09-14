@@ -235,6 +235,30 @@ function login_clear_failures(string $email): void
 }
 
 /**
+ * Alte Termine aufraeumen - aber hoechstens einmal pro Tag.
+ *
+ * Frueher lief prune_old() bei jeder einzelnen Buchung: eine unbegrenzte
+ * DELETE-Operation mitten im Request des Nutzers. Der Marker in der Tabelle
+ * maintenance begrenzt das auf einen Lauf pro Tag. Das UPDATE mit WHERE-Klausel
+ * liefert nur dann eine Zeile zurueck, wenn es tatsaechlich zugeschlagen hat -
+ * damit raeumt auch bei gleichzeitigen Requests genau einer auf.
+ */
+function prune_old_if_due(int $days_back = 14): void
+{
+    $sql = "INSERT INTO maintenance (task, last_run) VALUES ('prune_old', now())
+            ON CONFLICT (task) DO UPDATE SET last_run = now()
+            WHERE maintenance.last_run < now() - interval '1 day'
+            RETURNING 1";
+    $due = pdo()->query($sql)->fetchColumn();
+
+    if ($due) {
+        $st = pdo()->prepare("SELECT * FROM prune_old(:days::int)");
+        $st->execute([':days' => $days_back]);
+        $st->fetch();
+    }
+}
+
+/**
  * Verbrennt denselben Rechenaufwand wie eine echte Passwortpruefung.
  *
  * Ohne das antwortet der Login bei unbekannter E-Mail messbar schneller und
