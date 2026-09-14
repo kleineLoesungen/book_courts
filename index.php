@@ -100,9 +100,6 @@ function render_time_select(string $name, string $selected = '', bool $isEnd = f
   if (!$isEnd) {
     for ($h = 0; $h < 24; $h++) {
       foreach ([0, 30] as $m) {
-        if ($h === 23 && $m === 59) continue;
-        if ($h === 23 && $m === 60) continue;
-        if ($h === 23 && $m > 30) continue;
         $val = sprintf('%02d:%02d', $h, $m);
         $sel = ($selected === $val) ? ' selected' : '';
         $opts[] = '<option value="' . h($val) . '"' . $sel . '>' . h($val) . '</option>';
@@ -271,35 +268,10 @@ if (($_GET['action'] ?? '') === 'free_courts') {
       exit;
     }
 
-    $pdo = pdo();
-    // 1. erst versuchen, über Funktion zu gehen
-    try {
-      $st = $pdo->prepare("SELECT id, name FROM free_courts(:s::timestamptz,:e::timestamptz)");
-      $st->execute([':s' => $s->format('c'), ':e' => $e->format('c')]);
-      $rows = $st->fetchAll();
-      echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
-      exit;
-    } catch (PDOException $ee) {
-      // 42883 = undefined_function -> Fallback auf Inline-SQL
-      if ($ee->getCode() !== '42883') throw $ee;
-      $sql = "
-        SELECT c.id, c.name
-        FROM court c
-        WHERE c.is_active
-          AND NOT EXISTS (
-            SELECT 1
-            FROM booking b
-            WHERE b.court_id = c.id
-              AND b.status = 'active'
-              AND b.time_span && tstzrange(:s::timestamptz, :e::timestamptz, '[)')
-          )
-        ORDER BY c.name";
-      $st = $pdo->prepare($sql);
-      $st->execute([':s' => $s->format('c'), ':e' => $e->format('c')]);
-      $rows = $st->fetchAll();
-      echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
-      exit;
-    }
+    $st = pdo()->prepare("SELECT id, name FROM free_courts(:s::timestamptz,:e::timestamptz)");
+    $st->execute([':s' => $s->format('c'), ':e' => $e->format('c')]);
+    echo json_encode(['ok' => true, 'items' => $st->fetchAll()], JSON_UNESCAPED_UNICODE);
+    exit;
   } catch (Throwable $ex) {
     echo json_encode(['ok' => false, 'error' => 'server_error']);
     exit;
@@ -1079,55 +1051,6 @@ function html_head(string $title): string
     .dt-compact{height:42px;padding:0 10px;font-size:14px;line-height:1.2}
     .dt-compact::-webkit-datetime-edit,.dt-compact::-webkit-date-and-time-value{padding:0}
     .dt-compact::-webkit-calendar-picker-indicator{margin:0 2px}
-      /* === Fancy Tennis Header === */
-    .hdr-gradient{
-      /* dunklerer Verlauf: Dämmerung -> Rasen */
-      background-image:
-        linear-gradient(135deg,#1e3a8a 0%, #2563eb 25%, #16a34a 75%, #14532d 100%);
-      position: relative;
-    }
-    .hdr-gradient::before{
-      /* leichte Abdunklung für bessere Lesbarkeit */
-      content:"";
-      position:absolute; inset:0;
-      background: linear-gradient(to bottom, rgba(0,0,0,.20), rgba(0,0,0,.10));
-      pointer-events:none;
-    }
-    .hdr-court{
-      /* Court-Linien etwas deutlicher */
-      background-image:
-        linear-gradient(0deg, rgba(255,255,255,.14) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.14) 1px, transparent 1px);
-      background-size: 28px 28px, 28px 28px;
-      background-position: center;
-    }
-    .hdr-net{ position: relative; overflow: hidden; }
-    .hdr-net::after{
-      content:"";
-      position:absolute; left:0; right:0; bottom:-1px; height:28px;
-      background:
-        repeating-linear-gradient(
-          90deg,
-          rgba(255,255,255,.95) 0 10px,
-          rgba(255,255,255,.30) 10px 18px
-        );
-      opacity:.5;
-      border-bottom-left-radius: .75rem;
-      border-bottom-right-radius: .75rem;
-      pointer-events:none;
-    }
-
-    /* Buttons/Chips im Header dunkler glasig */
-    .glass-dark{
-      backdrop-filter: blur(8px);
-      background-color: rgba(0,0,0,.28);
-      color:#fff;
-      box-shadow: 0 1px 0 0 rgba(255,255,255,.15) inset, 0 6px 20px rgba(0,0,0,.25);
-    }
-    .glass-dark:hover{ background-color: rgba(0,0,0,.36); }
-
-    /* Typo etwas kräftiger + Schatten fürs Logo/Wortmarke */
-    .hdr-brand{ filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
     /* Gradient-Schrift für die Wortmarke */
     .text-gradient{
       background-image: linear-gradient(90deg,#6366f1 0%, #22c55e 40%, #06b6d4 100%);

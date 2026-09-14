@@ -1,8 +1,18 @@
 # Zugriff auf sensible Dateien verhindern.
 # Das Muster deckt bewusst alle .env-Varianten ab (.env, .env.example, .env.deploy).
+# conf.php gibt es im Projekt nicht mehr. Fruehe Versionen von deploy.sh haben aber
+# nahezu alles hochgeladen und loeschen auf dem Server nie etwas - eine alte conf.php
+# mit Zugangsdaten kann dort also noch liegen.
 <FilesMatch "^(\.env.*|conf\.php|pg\.sql|deploy\.sh|.*\.md)$">
     Require all denied
 </FilesMatch>
+
+# Alle Pfade mit einem Punkt am Anfang eines Segments sperren (.git/, .claude/,
+# .gitignore ...), ebenfalls Reste frueher Deployments. Ausgenommen ist .well-known/,
+# das Let's Encrypt fuer die Zertifikatserneuerung braucht.
+<IfModule mod_alias.c>
+    RedirectMatch 404 "/\.(?!well-known/)"
+</IfModule>
 
 # Alle Aufrufe auf HTTPS umleiten. Erst damit bekommt das Session-Cookie sein
 # Secure-Flag (start_secure_session() setzt es, sobald die Verbindung HTTPS ist).

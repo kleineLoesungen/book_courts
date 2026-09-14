@@ -24,8 +24,9 @@
 CREATE SCHEMA IF NOT EXISTS :"schema_name";
 SET search_path TO :"schema_name";
 
--- Für gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() ist seit PostgreSQL 13 fest eingebaut; pgcrypto wird nicht
+-- mehr benoetigt. Auf Shared Hosting koennte CREATE EXTENSION zudem an fehlenden
+-- Rechten scheitern.
 
 -- 1) Basistypen
 -- CREATE TYPE kennt kein IF NOT EXISTS, daher Pruefung im DO-Block.
