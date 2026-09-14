@@ -139,11 +139,18 @@ function render_time_select(string $name, string $selected = '', bool $isEnd = f
 function render_duration_input(string $name, int $selectedMin, bool $isAdmin, string $id = ''): string
 {
   $idAttr = $id ? ' id="' . h($id) . '"' : '';
-  if (!$isAdmin) {
-    // Zwei exklusive Buttons: 30 / 60
-    $opts = [30 => '30&nbsp;Min', 60 => '60&nbsp;Min'];
-    $html = '<div class="flex gap-2" role="radiogroup">';
-    foreach ($opts as $min => $label) {
+
+  // Erlaubte Dauern: 30-Minuten-Schritte bis zum Maximum der Rolle
+  $max = max_booking_minutes($isAdmin);
+  $durations = range(BOOKING_SLOT_MINUTES, $max, BOOKING_SLOT_MINUTES);
+  // Vorauswahl auf das Raster und in den erlaubten Bereich holen
+  $selectedMin = max(BOOKING_SLOT_MINUTES, min($max, intdiv($selectedMin, BOOKING_SLOT_MINUTES) * BOOKING_SLOT_MINUTES));
+
+  if (!$isAdmin && count($durations) <= 4) {
+    // Wenige Optionen: exklusive Buttons. Die id gehoert an die Gruppe, das JS
+    // der Platzverfuegbarkeit sucht die Radios darueber.
+    $html = '<div class="flex gap-2" role="radiogroup"' . $idAttr . '>';
+    foreach ($durations as $min) {
       $cid = $id ? $id . '_' . $min : ('dur_' . $min);
       $checked = ($selectedMin === $min) ? ' checked' : '';
       $html .= '
@@ -151,7 +158,7 @@ function render_duration_input(string $name, int $selectedMin, bool $isAdmin, st
           <input class="peer sr-only" type="radio" name="' . h($name) . '" value="' . $min . '" id="' . h($cid) . '" required' . $checked . '>
           <span class="px-4 py-2 rounded-xl border text-sm bg-white border-gray-300 text-gray-800
                        peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 inline-block">'
-        . $label .
+        . str_replace(' ', '&nbsp;', format_duration_label($min)) .
         '</span>
         </label>';
     }
@@ -159,12 +166,11 @@ function render_duration_input(string $name, int $selectedMin, bool $isAdmin, st
     return $html;
   }
 
-  // Admin: Dropdown 30–720 Minuten
+  // Admins und lange Maxima: Dropdown
   $opts = [];
-  for ($m = 30; $m <= 12 * 60; $m += 30) {
-    $label = ($m < 60) ? ($m . ' Min') : (floor($m / 60) . ' Std' . (($m % 60) ? ' ' . ($m % 60) . ' Min' : ''));
+  foreach ($durations as $m) {
     $sel = ($selectedMin === $m) ? ' selected' : '';
-    $opts[] = '<option value="' . $m . '"' . $sel . '>' . $label . '</option>';
+    $opts[] = '<option value="' . $m . '"' . $sel . '>' . format_duration_label($m) . '</option>';
   }
   return '
   <div class="relative w-full">
@@ -423,8 +429,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
 
       // Rollen-Restriktion
-      if (!is_admin() && !in_array($duration, [30, 60], true)) {
-        throw new Exception('Nur 30 oder 60 Minuten erlaubt.');
+      if ($duration > max_booking_minutes(is_admin())) {
+        throw new Exception('Maximal ' . format_duration_label(max_booking_minutes(is_admin())) . ' pro Buchung erlaubt.');
       }
 
       // Buchungen in der Vergangenheit sperren. Admins duerfen nachtragen -
@@ -505,7 +511,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!$s) throw new Exception('Ungültige Zeitangaben.');
       if (((int)$s->format('i')) % 30 !== 0) throw new Exception('Startzeit muss auf :00 oder :30 liegen.');
       if ($duration <= 0 || $duration % 30 !== 0) throw new Exception('Dauer muss Vielfaches von 30 Minuten sein.');
-      if (!is_admin() && !in_array($duration, [30, 60], true)) throw new Exception('Nur 30 oder 60 Minuten erlaubt.');
+      if ($duration > max_booking_minutes(is_admin())) throw new Exception('Maximal ' . format_duration_label(max_booking_minutes(is_admin())) . ' pro Termin erlaubt.');
       $e = (clone $s)->modify('+' . $duration . ' minutes');
       if (!$s || !$e) throw new Exception('Ungültige Zeitangaben.');
       if ($e <= $s)   throw new Exception('Ende muss nach Start liegen.');

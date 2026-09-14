@@ -8,7 +8,7 @@ Reines PHP und PostgreSQL, ohne Framework, ohne Composer, ohne Build-Schritt. L�
 
 **Mitglieder** (`index.php`)
 - Wochen- und Tagesansicht aller Plätze
-- Einzelbuchungen über 30 oder 60 Minuten, nicht in der Vergangenheit
+- Einzelbuchungen im 30-Minuten-Raster bis zur konfigurierten Höchstdauer (Standard 60 Minuten), nicht in der Vergangenheit
 - Eigene Buchungen stornieren
 - Der Kalender ist ohne Login einsehbar, Namen erscheinen dann nur als Initialen
 
@@ -55,6 +55,7 @@ Alle Werte stehen in `.env` (nicht im Repository, siehe `.env.example`):
 | `DB_HOST`, `DB_PORT`, `DB_NAME` | PostgreSQL-Verbindung |
 | `DB_USER`, `DB_PASS` | Zugangsdaten |
 | `DB_SCHEMA` | Schema, in dem die Tabellen liegen (Standard: `book_courts`) |
+| `MAX_BOOKING_MINUTES_USER` | Optional. Längste Buchung für Mitglieder in Minuten (Standard: `60`). Buchungen liegen im 30-Minuten-Raster: Werte daneben werden auf die längste enthaltene Rasterdauer abgerundet (`100` → 90, `45` → 30). Mindestens 30, höchstens 720. Keine ganze Zahl → Fehler beim Seitenaufruf |
 
 Werte werden wörtlich übernommen, alles nach dem ersten `=` bis zum Zeilenende. Sonderzeichen wie `;`, `#` oder `"` brauchen keine Maskierung. Anführungszeichen sind nur nötig, wenn ein Wert mit einem Leerzeichen beginnt oder endet.
 

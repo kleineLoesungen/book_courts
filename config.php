@@ -54,6 +54,61 @@ function parse_env_file(string $path): array
     return $config;
 }
 
+/* =======================
+   Buchungsdauer
+   ======================= */
+
+const BOOKING_SLOT_MINUTES              = 30;   // Raster, auf dem alle Buchungen liegen
+const ADMIN_MAX_BOOKING_MINUTES         = 720;  // 12 Stunden
+const DEFAULT_MAX_BOOKING_MINUTES_USER  = 60;   // wenn MAX_BOOKING_MINUTES_USER fehlt
+
+/**
+ * MAX_BOOKING_MINUTES_USER aus der .env in einen gueltigen Wert uebersetzen.
+ *
+ * Buchungen liegen im 30-Minuten-Raster. Ein Wert neben dem Raster wird auf die
+ * groesste darin enthaltene Rasterdauer abgerundet (100 -> 90). Mindestens ein
+ * Slot bleibt immer buchbar, und Mitglieder duerfen nie laenger buchen als Admins.
+ * Kein Wert heisst Standard (60); etwas anderes als eine ganze Zahl ist ein
+ * Konfigurationsfehler und wird nicht still ignoriert.
+ *
+ * @throws RuntimeException bei nicht-numerischem Wert
+ */
+function normalize_max_booking_minutes(string $raw): int
+{
+    if ($raw === '') {
+        return DEFAULT_MAX_BOOKING_MINUTES_USER;
+    }
+    if (!ctype_digit($raw)) {
+        throw new RuntimeException("MAX_BOOKING_MINUTES_USER muss eine ganze Zahl in Minuten sein, erhalten: {$raw}");
+    }
+
+    $minutes = intdiv((int) $raw, BOOKING_SLOT_MINUTES) * BOOKING_SLOT_MINUTES;
+
+    return max(BOOKING_SLOT_MINUTES, min($minutes, ADMIN_MAX_BOOKING_MINUTES));
+}
+
+/**
+ * Laengste erlaubte Buchungsdauer in Minuten fuer die jeweilige Rolle.
+ */
+function max_booking_minutes(bool $is_admin): int
+{
+    global $MAX_BOOKING_MINUTES_USER;
+    return $is_admin ? ADMIN_MAX_BOOKING_MINUTES : $MAX_BOOKING_MINUTES_USER;
+}
+
+/**
+ * Dauer als kurze Beschriftung: "30 Min", "1 Std", "1 Std 30 Min".
+ */
+function format_duration_label(int $minutes): string
+{
+    $h = intdiv($minutes, 60);
+    $m = $minutes % 60;
+    if ($h === 0) {
+        return "{$m} Min";
+    }
+    return $m === 0 ? "{$h} Std" : "{$h} Std {$m} Min";
+}
+
 /**
  * Load .env configuration and populate global DB config variables.
  *
@@ -88,6 +143,10 @@ function load_env_config(): void
     $DB_USER = (string) $config['DB_USER'];
     $DB_PASS = (string) $config['DB_PASS'];
     $DB_SCHEMA = (string) $config['DB_SCHEMA'];
+
+    // Optional - aeltere .env-Dateien ohne diesen Schluessel behalten 60 Minuten.
+    global $MAX_BOOKING_MINUTES_USER;
+    $MAX_BOOKING_MINUTES_USER = normalize_max_booking_minutes((string) ($config['MAX_BOOKING_MINUTES_USER'] ?? ''));
 
     $dsn = "pgsql:host={$DB_HOST};port={$DB_PORT};dbname={$DB_NAME};options='--client_encoding=UTF8'";
 }

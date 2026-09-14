@@ -48,6 +48,7 @@ Each entry point still defines its own `h()`, `csrf_token()`, `csrf_check()`, `f
 ## Configuration
 
 - `.env` (untracked, `chmod 600`) provides `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_SCHEMA`; template in `.env.example`
+- Optional `MAX_BOOKING_MINUTES_USER` (default 60): normalized by `normalize_max_booking_minutes()` — rounded down to the 30-minute grid, clamped to 30..720, non-integers throw. Read it only through `max_booking_minutes(is_admin())`, which returns 720 for admins; both POST handlers and `render_duration_input()` use it (buttons up to 4 options, otherwise a select)
 - `parse_env_file()` takes values literally (everything after the first `=`). Do not switch back to `parse_ini_file()` — it truncates values at `;`/`#` and turns `off`/`no`/`none` into empty strings
 - `DB_SCHEMA` is applied via `SET search_path` in `pdo()` (validated against `^[A-Za-z_][A-Za-z0-9_]*$`). SQL in PHP is **not** schema-qualified; stored functions pin their own `search_path`
 - `.env.deploy` (untracked) holds FTP credentials; it is loaded with bash `source`, so comments use `#`
