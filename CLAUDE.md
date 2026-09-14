@@ -2,227 +2,91 @@
 
 **Book Courts**
 
-A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badminton courts). Members log in to see a week/day view of court availability, create single bookings within a 30-minute grid, and admins can create recurring booking series, manage users and courts, and cancel bookings. The app already runs — it's an existing, working monolith (`index.php`, `admin.php`, `pg.sql`) that needs hardening rather than a from-scratch build.
+A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badminton courts). Members see a week/day view of court availability and create single bookings within a 30-minute grid; admins create recurring booking series, manage users and courts, and cancel bookings. It is a working monolith that is being hardened, not rebuilt. See `README.md` for features, setup and deployment.
 
 **Core Value:** Members can reliably book a court for a specific time without double-booking conflicts, and admins can manage the full roster of bookings, series, users, and courts.
 
 ### Constraints
 
 - **Tech stack**: PHP + PostgreSQL, no framework — keep changes compatible with the existing PDO/stored-procedure architecture rather than introducing an ORM or framework migration
-- **No package manager**: Composer is not currently used; introducing dependencies (e.g. a test framework) needs a deliberate, minimal setup
-- **Single deployment target**: Apache + mod_php via `.htaccess`, no containerization currently in place
+- **No package manager**: Composer is not used; introducing dependencies needs a deliberate, minimal setup. Third-party browser libraries are vendored into `assets/` with the version in the filename
+- **Single deployment target**: Hetzner Webhosting, Apache + PHP via `.htaccess`, deployed over FTPS with `deploy.sh`
+- **Shared production database**: one database and one database user, shared with other applications' schemas. Never run destructive SQL against production; `pg.sql` must stay idempotent and must only touch its own schema
+- **Test locally**: develop and test against a local database (e.g. `book_courts_test`), never against production
 
 ## Technology Stack
 
-## Languages
-- PHP 8.0+ - All backend logic and server-side rendering. Uses strict type declarations (`declare(strict_types=1)`) throughout.
-- JavaScript (Vanilla) - Client-side interactivity for AJAX requests and form handling
-- SQL (PL/pgSQL) - Database stored procedures and triggers
-## Runtime
-- PHP CLI/CGI (built-in PHP web server or Apache mod_php)
-- Requires PHP 7.4+ minimum (uses match expressions, named arguments, type hints)
-- Not applicable - No external package dependency management (Composer not detected)
-- All code is bundled directly in PHP files
-## Frameworks
-- Custom PHP MVC-inspired routing - All endpoints handled in `index.php` and `admin.php` with action-based routing via `$_GET['action']`
-- Tailwind CSS 3.4.16 - Served locally from `assets/tailwind-3.4.16.js` (Play CDN build, no external request)
-- Lucide Icons 0.469.0 - Served locally from `assets/lucide-0.469.0.min.js`
-## Key Dependencies
-- PostgreSQL 12+ - Primary database with custom schema, stored procedures, and complex range-based queries
-- PHP PDO PostgreSQL Driver - Built-in PDO extension with PostgreSQL support
-- Apache 2.4+ - Web server with `.htaccess` configuration for URL rewriting and file access control
+- PHP 8.0+ with `declare(strict_types=1)` in every file (`str_contains()` requires 8.0)
+- PostgreSQL 13+ (`gen_random_uuid()` from core, `TSTZRANGE` + GiST for overlap detection, PL/pgSQL functions and a trigger)
+- Tailwind CSS 3.4.16 (Play CDN build) and Lucide 0.469.0, both served locally from `assets/`
+- Vanilla JavaScript inline in `index.php`/`admin.php` for AJAX and form handling
+- Timezone is fixed to `Europe/Berlin` in PHP and SQL
+
+## Structure
+
+| File | Responsibility |
+|---|---|
+| `config.php` | Shared bootstrap for both entry points: `.env` parser, `pdo()`, `start_secure_session()` / `destroy_session()`, login rate limiting, `prune_old_if_due()` |
+| `index.php` | Member UI: week/day view, bookings, series (admin only), AJAX endpoints `free_courts` and `series_preview` |
+| `admin.php` | Admin UI: overview, users, courts; first-admin bootstrap when no user exists |
+| `pg.sql` | Idempotent schema install: tables, enums, `prevent_overlap` trigger, `create_booking()`, `prune_old()`, `free_courts()` |
+| `.htaccess` | HTTPS redirect, HSTS, security headers, access denial for secrets and dot-paths, asset caching |
+| `deploy.sh` | `lftp mirror --reverse` of exactly `index.php`, `admin.php`, `config.php`, `.htaccess`, `.env`, `assets/` |
+
+Both entry points start with:
+
+```php
+declare(strict_types=1);
+
+require_once __DIR__ . '/config.php';
+
+start_secure_session();
+```
+
+Each entry point still defines its own `h()`, `csrf_token()`, `csrf_check()`, `flash()`, `render_flash()` and `is_logged_in()`. The `is_logged_in()` variants are intentionally different: `index.php` checks `$_SESSION['user']`, `admin.php` checks `$_SESSION['admin_user']`.
+
 ## Configuration
-- Connection details stored in `conf.php` (NOT version controlled - contains database credentials)
-- Configuration approach: Global PHP variables loaded at bootstrap
-- Required settings:
-- No build process detected
-- Direct file serving via Apache
-- `.htaccess` handles DirectoryIndex and access restrictions
-## Platform Requirements
-- PHP 8.0+ with PDO PostgreSQL support
-- PostgreSQL 12+ with pgcrypto extension
-- Web server (Apache with mod_rewrite or PHP built-in server)
-- Browser with ES6 support for inline JavaScript
-- Apache 2.4+ with mod_php or PHP-FPM
-- PostgreSQL 12+ with pgcrypto extension (`CREATE EXTENSION IF NOT EXISTS pgcrypto`)
-- TLS/SSL certificate for HTTPS (recommended)
-- Session storage (default: filesystem via PHP)
-- Application hardcoded to Europe/Berlin timezone in DateTime handling
-- Database schema expects Europe/Berlin timezone for timestamp conversions
+
+- `.env` (untracked, `chmod 600`) provides `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_SCHEMA`; template in `.env.example`
+- `parse_env_file()` takes values literally (everything after the first `=`). Do not switch back to `parse_ini_file()` — it truncates values at `;`/`#` and turns `off`/`no`/`none` into empty strings
+- `DB_SCHEMA` is applied via `SET search_path` in `pdo()` (validated against `^[A-Za-z_][A-Za-z0-9_]*$`). SQL in PHP is **not** schema-qualified; stored functions pin their own `search_path`
+- `.env.deploy` (untracked) holds FTP credentials; it is loaded with bash `source`, so comments use `#`
+- `deploy.sh` uploads the local `.env`: it must contain production values when deploying
 
 ## Conventions
 
-## Language & Type Safety
-- All PHP files start with `declare(strict_types=1);` and `session_start();`
-- Strict types are enforced at file level: `declare(strict_types=1);` (see `index.php` line 11, `admin.php` line 11)
-- All function parameters require type hints
-- All function return types must be declared
-## Naming Patterns
-- Use `snake_case` exclusively
-- Examples: `pdo()`, `csrf_token()`, `csrf_check()`, `is_logged_in()`, `current_user()`, `is_admin()`, `flash()`, `render_flash()`, `anonymize_name()`, `format_duration_short()`, `redirect_to_day()`, `render_time_select()`
-- Helper functions start with descriptive verbs: `render_*`, `format_*`, `is_*`, `has_*`
-- See `index.php` lines 19-102 for helper function examples
-- Use `snake_case` for all variables
-- Examples: `$csrf`, `$user_id`, `$court_id`, `$start_time`, `$booking_id`, `$series_id`, `$duration`, `$weekday`, `$startDt`, `$endDt`, `$booking_date`
-- Short variable names in loops and single-use contexts: `$u` (user), `$b` (booking), `$s` (series), `$c` (court), `$st` (statement), `$m` (match array), `$f` (flash)
-- See `index.php` lines 200-220 for variable naming patterns
-- PostgreSQL error codes checked as integers: `42883` (undefined_function)
-- Array keys shortened: `'t'` for type, `'m'` for message in flash arrays
-- See `index.php` line 278 and line 66
-- Use `camelCase` for all functions and variables
-- Examples: `openWeekPicker()`, `openCancelDialog()`, `closeCancelDialog()`, `snapTo30min()`, `selectDay()`, `goWeek()`
-- Global variable for state: `_pendingCancelForm` (underscore prefix for module-level state)
-- See `index.php` lines 1496-1549 and `admin.php` lines 552-599
-## Code Organization & Structure
-- `Helpers / Bootstrap` - Database, CSRF, authentication helpers
-- `Auth (simple)` - Login/logout logic
-- `Mini-API` - AJAX endpoints returning JSON
-- `View params` - Request parameters and state
-- `POST Actions` - Form submissions and operations
-- `Daten laden` - Data fetching for rendering
-## Error Handling
-- Line 270-300: PDOException with error code checking
-- Line 423-643: Multi-level exception handling with custom error parsing
-- Line 605-643: PDO error message regex parsing for user-friendly display
-- User-facing errors via `flash()` function with type 'error' or 'success'
-- JSON responses use: `['ok' => false, 'error' => 'error_key']`
-- Graceful fallbacks when error parsing fails
-- See `index.php` lines 608-643 for sophisticated error message parsing
-- `http_response_code(400)` for CSRF failures
-- `http_response_code(403)` for authorization failures
-- JSON endpoints use appropriate Content-Type headers
-## Input Validation
-## Database Access
-## String Formatting & Output
-- Use double quotes with curly braces for complex expressions: `"{$var}"`
-- Use single quotes for static strings
-- Concatenate with `.` operator for readability
-- See `index.php` line 632: `"Konflikt: Auf Platz {$courtName} ist am {$dateLabel}..."`
-## Date & Time Handling
-- Line 97: DateTime with timezone
-- Line 406-407: View parameter setup
-- Line 435: DateTimeZone usage
-- Database ISO format: 'c' (ISO 8601)
-- Display format: 'd.m.Y' (German format)
-- Time format: 'H:i' (24-hour)
-- 30-minute raster enforced: `$minutes % 30 === 0`
-## Closures & Arrow Functions
-## Comments
-- Section headers use /* === ... === */ style
-- Inline comments in German for business logic
-- No docblocks (simple functions don't need them)
-- Descriptive comments for complex queries
-- See `index.php` lines 16-18, 103, 269-270, 321
-- Complex SQL queries
-- Business rule explanations
-- Non-obvious algorithm choices
-- Regex patterns
-- Fallback behavior explanations
-## JSON & AJAX
+### Naming
+- PHP: `snake_case` for functions and variables; helper verbs `render_*`, `format_*`, `is_*`
+- Short names in loops/single use: `$u` user, `$b` booking, `$s` series, `$c` court, `$st` statement, `$m` match
+- Flash arrays use short keys `'t'` (type) and `'m'` (message)
+- JavaScript: `camelCase`; widget code lives in IIFEs, module-level state uses an underscore prefix (`_pendingCancelForm`)
+
+### Formatting
+- 4-space indentation for new code (`index.php` still mixes 2 and 4 spaces)
+- Opening braces on the same line
+- Double quotes with `{$var}` for interpolation, single quotes for static strings
+- Section headers as `/* === ... === */`; inline comments in German for business logic; comments explain *why*
+
+### Date & time
+- ISO 8601 (`'c'`) towards the database, `d.m.Y` and `H:i` for display
+- 30-minute grid enforced in PHP (`% 30`), in `create_booking()` and by the `booking_grid_chk` constraint
+
 ## Security Patterns
-- Token generated and stored in `$_SESSION['csrf']`
-- On every POST request: `csrf_check()`
-- Token included in forms: `<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">`
-- See `index.php` lines 31-46
-- Use `password_hash($pass, PASSWORD_DEFAULT)`
-- Verify with `password_verify($pass, $hash)`
-- See `admin.php` lines 274, 300
-- Role-based checks: `is_admin()`, `is_logged_in()`
-- Owner checks: `$b['user_id'] !== current_user()['id']`
-- See `index.php` lines 448-449, 475
-## Indentation & Formatting
-- `index.php`: Uses 2-space indentation in some places, 4-space in others (inconsistent)
-- `admin.php`: Uses 4-space indentation (more consistent)
-- Choose 4-space for new code
-- No strict limit, but keep SQL readable with line breaks at logical points
-- Long HTML strings use concatenation with `.`
-- All opening braces on same line: `if (...) {`
-- Closing braces on own line for blocks
 
-## Architecture
+- **CSRF**: token in `$_SESSION['csrf']`, hidden field `csrf` in every form, `csrf_check()` on every POST
+- **SQL**: prepared statements everywhere; identifiers (schema name) are validated, never taken from requests
+- **XSS**: `h()` (`htmlspecialchars` with `ENT_QUOTES | ENT_SUBSTITUTE`) on all output
+- **Passwords**: `password_hash(..., PASSWORD_DEFAULT)` / `password_verify()`
+- **Authorization**: check roles in the POST handler itself (`is_admin()`, owner comparison) — hiding a form is not a check
+- **Sessions**: cookie `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; `session_regenerate_id(true)` after login; 8h idle timeout
+- **Login**: identical message for every failure ("E-Mail oder Passwort falsch."), `dummy_password_verify()` for unknown accounts, lockout via `login_attempt` (5 per account / 20 per IP in 15 minutes)
+- **Errors**: never render raw PDO messages; log them with `error_log()` and translate known SQLSTATEs (`23503`, `23505`) into user-facing text
+- **Privacy**: the public calendar shows initials only (`anonymize_name()`); full names require login
 
-## Pattern Overview
-- Monolithic codebase with two entry points (user and admin interfaces)
-- Mixed presentation and application logic in PHP files
-- Direct PDO database interaction without ORM
-- Session-based authentication with separate user/admin flows
-- Server-side rendering with Tailwind CSS
-- PostgreSQL database with stored functions for complex operations
-## Layers
-- Purpose: Render HTML/Tailwind UI and handle user interactions
-- Location: `index.php` (lines 710-968), `admin.php` (lines 88-732)
-- Contains: HTML rendering functions, form generation, dialog markup
-- Depends on: Application logic layer, session management
-- Used by: Web browser clients
-- Purpose: Handle HTTP requests, parse parameters, route to operations, manage business logic
-- Location: `index.php` (lines 198-644), `admin.php` (lines 141-349)
-- Contains: Login/logout handlers, POST action routing, CSRF validation, data loading
-- Depends on: Database layer, presentation layer
-- Used by: Entry points for all user interactions
-- Purpose: Provide JSON responses for dynamic UI (AJAX calls)
-- Location: `index.php` (lines 245-301, 306-401)
-- Contains: `free_courts` endpoint (availability lookup), `series_preview` endpoint (series conflict analysis)
-- Depends on: Database layer via PDO
-- Used by: Client-side JavaScript for real-time availability
-- Purpose: Execute database queries and manage database connections
-- Location: `index.php` (lines 19-30), `admin.php` (lines 19-30)
-- Contains: PDO singleton factory function, prepared statement execution
-- Depends on: Configuration, PostgreSQL database
-- Used by: All application logic that needs data persistence
-- Purpose: Store and manage data, enforce constraints, perform complex queries
-- Location: `pg.sql`
-- Contains: Schema definition, tables, indexes, triggers, stored functions
-- Depends on: PostgreSQL 
-- Used by: Data access layer via PDO
-## Data Flow
-- Session: PHP `$_SESSION` for user/admin state and CSRF tokens
-- URL Parameters: `date`, `selected`, `view`, `action` for navigation state
-- Database: Single source of truth for bookings, users, courts, series
-## Key Abstractions
-- Purpose: Prevent cross-site request forgery attacks
-- Examples: `csrf_token()` (line 31-37), `csrf_check()` (line 38-47) in both files
-- Pattern: Generate token in session, embed in form, validate on POST
-- Purpose: Check user login status and permissions
-- Examples: `is_logged_in()` (line 52-55), `is_admin()` (line 60-63), `current_user()` (line 56-59)
-- Pattern: Check session variables, return boolean or user data
-- Purpose: Prevent XSS vulnerabilities
-- Examples: `h()` function (line 48-51 in index.php, line 31-34 in admin.php)
-- Pattern: Apply `htmlspecialchars()` with ENT_QUOTES to all user output
-- Purpose: Generate UI elements for time selection
-- Examples: `render_time_select()` (line 104-149), `render_duration_input()` (line 152-193), `format_duration_short()` (line 84-93)
-- Pattern: Loop through time/duration options, render HTML with selected state
-- Purpose: Display user feedback across redirects
-- Examples: `flash()` (line 64-67), `render_flash()` (line 68-77)
-- Pattern: Store message in `$_SESSION['flash']`, render and clear on next page load
-## Entry Points
-- Location: `index.php` (lines 1-1553)
-- Triggers: GET requests to `index.php` with optional `action` and `view` parameters
-- Responsibilities: 
-- Location: `admin.php` (lines 1-735)
-- Triggers: GET/POST requests to `admin.php` with optional `action` parameter
-- Responsibilities:
-- Location: `conf.php` (lines 1-19)
-- Used by: Both `index.php` and `admin.php`
-- Provides: Database credentials and DSN string
-## Error Handling
-```php
-```
-- Booking overlap check in `prevent_overlap()` PostgreSQL trigger (pg.sql lines 80-103)
-- Constraint checks in `booking_grid_chk` (pg.sql lines 46-52) for 30-minute grid alignment
-- Both raise EXCEPTION which becomes PDOException with specific message
-```php
-```
-## Cross-Cutting Concerns
-- Client-side: HTML5 form attributes (type="email", required, etc.)
-- Server-side: PHP validation in POST handlers (lines 427-522 in index.php, lines 265-343 in admin.php)
-- Database: Triggers and CHECK constraints enforce 30-minute grid alignment
-- Times validated against DateTimeZone('Europe/Berlin') for consistency
-- Login checks via session variables: `$_SESSION['user']` (users) or `$_SESSION['admin_user']` (admins)
-- Permission checks: `is_admin()` for admin-only operations, user_id comparison for ownership
-- Separate login flows prevent privilege escalation between user and admin contexts
-- Hardcoded to 'Europe/Berlin' throughout application
-- All dates stored as TIMESTAMPTZ in database
-- Conversion applied when displaying to users: `->setTimezone($tz)->format(...)`
-- Series expansion respects timezone when calculating occurrences
-- Advisory locks in `create_booking()` function (pg.sql line 175-176) serialize per-court operations
-- Prevents race conditions when multiple users book same court simultaneously
+## Database
+
+- Overlap protection has three layers: per-court `pg_advisory_xact_lock`, the conflict check in `create_booking()`, and the `trg_booking_no_overlap` trigger
+- Conflict errors from `create_booking()` are parsed in `index.php` to show the court name and local time — keep the message format `Konflikt: Zeitraum <start> – <end> auf Platz <uuid> belegt` in sync
+- `prune_old(14)` deletes bookings/series that ended more than 14 days ago; it runs at most once per day via the `maintenance` table (`prune_old_if_due()`), triggered by booking requests
+- `recurring_exception` is read by `materialize_series()` but has no UI that writes to it yet
+- Schema changes go into `pg.sql` as `CREATE ... IF NOT EXISTS` (enum types via guarded `DO` block) so the script can be re-run on existing installations
