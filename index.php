@@ -753,6 +753,7 @@ echo '
          id="weekDateInput"
          value="' . h($date) . '"
          onchange="goWeek(this.value)"
+         tabindex="-1" aria-hidden="true"
          class="absolute inset-0 w-full h-full cursor-pointer opacity-[0.001] z-20"
          style="-webkit-appearance:none;appearance:none;">
   <button type="button"
@@ -1540,13 +1541,21 @@ document.addEventListener("DOMContentLoaded", () => {
 function openWeekPicker(){
   const i = document.getElementById('weekDateInput');
   if (!i) return;
-  if (typeof i.showPicker === 'function') {
+  try {
     i.showPicker();        // Moderne Browser inkl. aktuelles Safari/Chromium
-  } else {
-    i.focus();             // Fallback für ältere Browser
+  } catch (e) {
+    i.focus();             // Fallback, falls showPicker fehlt oder abgelehnt wird
     i.click();
   }
 }
+// Das unsichtbare Datumsfeld liegt ueber dem Button. Solange es Klicks abfaengt, laeuft
+// openWeekPicker() nie - ob der Picker aufgeht, haengt dann davon ab, welche Stelle im
+// nativen Feld man trifft. Wo showPicker() existiert, darf der Klick daher zum Button
+// durch. Aeltere Browser ohne showPicker behalten das Overlay als Tipp-Flaeche.
+(function(){
+  const i = document.getElementById('weekDateInput');
+  if (i && typeof i.showPicker === 'function') i.style.pointerEvents = 'none';
+})();
 
 function openCancelDialog(form){
   _pendingCancelForm = form || null;
