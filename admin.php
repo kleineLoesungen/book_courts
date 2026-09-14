@@ -86,8 +86,8 @@ function html_head(string $title): string
   <title>{$t}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/lucide-0.469.0.min.js"></script>
+  <script src="assets/tailwind-3.4.16.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-900">
 <header class="bg-gray-900 text-white">

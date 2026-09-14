@@ -1063,9 +1063,9 @@ function html_head(string $title): string
   <meta charset="utf-8">
   <title>{$t}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/tailwind-3.4.16.js"></script>
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="assets/lucide-0.469.0.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       if (window.lucide && typeof window.lucide.createIcons === 'function') {

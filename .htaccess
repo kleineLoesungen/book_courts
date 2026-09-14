@@ -12,6 +12,12 @@
     Header always set X-Frame-Options "DENY"
     # Referrer nur an die eigene Domain senden
     Header always set Referrer-Policy "same-origin"
+
+    # Die Skripte in assets/ tragen ihre Version im Dateinamen. Ein Update bekommt
+    # einen neuen Namen, deshalb duerfen Browser sie ein Jahr lang cachen.
+    <FilesMatch "\.js$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
 </IfModule>
 
 # index.php als Standard-Startseite

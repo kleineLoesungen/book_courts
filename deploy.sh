@@ -62,6 +62,6 @@ set ftp:ssl-allow yes
 set ftp:ssl-force yes
 set ftp:ssl-protect-data yes
 open -u "${DEPLOY_FTP_USER},${DEPLOY_FTP_PASS}" -p "${DEPLOY_FTP_PORT}" "${DEPLOY_FTP_HOST}"
-mirror --reverse --verbose ${DRY_RUN} --exclude-glob '*' --include-glob 'index.php' --include-glob 'admin.php' --include-glob 'config.php' --include-glob '.htaccess' --include-glob '.env' "${SCRIPT_DIR}/" "${DEPLOY_FTP_REMOTE_DIR}"
+mirror --reverse --verbose ${DRY_RUN} --exclude-glob '*' --include-glob 'index.php' --include-glob 'admin.php' --include-glob 'config.php' --include-glob '.htaccess' --include-glob '.env' --include-glob 'assets/' --include-glob 'assets/*.js' "${SCRIPT_DIR}/" "${DEPLOY_FTP_REMOTE_DIR}"
 bye
 LFTP_EOF

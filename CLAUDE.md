@@ -25,8 +25,8 @@ A PHP/PostgreSQL web app for booking sports courts (e.g. a club's tennis/badmint
 - All code is bundled directly in PHP files
 ## Frameworks
 - Custom PHP MVC-inspired routing - All endpoints handled in `index.php` and `admin.php` with action-based routing via `$_GET['action']`
-- Tailwind CSS 3.x - Loaded via CDN (`https://cdn.tailwindcss.com`)
-- Lucide Icons - Icon library loaded via CDN (`https://unpkg.com/lucide@latest`)
+- Tailwind CSS 3.4.16 - Served locally from `assets/tailwind-3.4.16.js` (Play CDN build, no external request)
+- Lucide Icons 0.469.0 - Served locally from `assets/lucide-0.469.0.min.js`
 ## Key Dependencies
 - PostgreSQL 12+ - Primary database with custom schema, stored procedures, and complex range-based queries
 - PHP PDO PostgreSQL Driver - Built-in PDO extension with PostgreSQL support
