@@ -4,8 +4,24 @@
     Require all denied
 </FilesMatch>
 
+# Alle Aufrufe auf HTTPS umleiten. Erst damit bekommt das Session-Cookie sein
+# Secure-Flag (start_secure_session() setzt es, sobald die Verbindung HTTPS ist).
+# Der PHP-Entwicklungsserver ignoriert diese Datei, lokal bleibt http also nutzbar.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    # Steht ein Proxy davor, der TLS beendet, meldet Apache HTTPS=off obwohl der
+    # Browser verschluesselt verbindet - ohne diese Zeile gaebe es eine Redirect-Schleife.
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
 # Sicherheits-Header
 <IfModule mod_headers.c>
+    # Browser merken sich ein Jahr lang, die Seite nur per HTTPS aufzurufen.
+    # Bewusst ohne includeSubDomains - weitere Subdomains koennten noch http brauchen.
+    Header always set Strict-Transport-Security "max-age=31536000" env=HTTPS
+
     # Verhindert MIME-Sniffing
     Header always set X-Content-Type-Options "nosniff"
     # Verhindert Einbettung in fremde Frames (Clickjacking)
