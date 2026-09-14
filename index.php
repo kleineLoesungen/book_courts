@@ -136,6 +136,16 @@ function render_time_select(string $name, string $selected = '', bool $isEnd = f
 }
 
 /* ==== UI Helper: Dauer-Eingabe im 30-Minuten-Raster ==== */
+
+// Braucht die Dauer-Auswahl eine eigene Zeile? Neben der Startzeit bleibt auf einem
+// 375px-Handy eine Spalte von rund 154px - schon zwei Buttons brauchen 165px. Nur ein
+// einzelner Button und die Auswahlliste (Admins, mehr als 4 Optionen) passen dorthin.
+function duration_needs_full_row(bool $isAdmin): bool
+{
+  $count = intdiv(max_booking_minutes($isAdmin), BOOKING_SLOT_MINUTES);
+  return !$isAdmin && $count >= 2 && $count <= 4;
+}
+
 function render_duration_input(string $name, int $selectedMin, bool $isAdmin, string $id = ''): string
 {
   $idAttr = $id ? ' id="' . h($id) . '"' : '';
@@ -149,16 +159,28 @@ function render_duration_input(string $name, int $selectedMin, bool $isAdmin, st
   if (!$isAdmin && count($durations) <= 4) {
     // Wenige Optionen: exklusive Buttons. Die id gehoert an die Gruppe, das JS
     // der Platzverfuegbarkeit sucht die Radios darueber.
-    $html = '<div class="flex gap-2" role="radiogroup"' . $idAttr . '>';
+    // Ein Button passt neben die Startzeit. Ab 2 steht die Dauer in einer eigenen
+    // Zeile (duration_needs_full_row) und die Buttons teilen sich die Breite
+    // gleichmaessig - bei 4 auf dem Handy 2x2, sonst laeuft es ueber.
+    $count = count($durations);
+    $groupClass = match ($count) {
+      1       => 'flex gap-2',
+      2       => 'grid grid-cols-2 gap-2',
+      3       => 'grid grid-cols-3 gap-2',
+      default => 'grid grid-cols-2 sm:grid-cols-4 gap-2',
+    };
+    $spanClass = $count === 1 ? 'inline-block px-4' : 'block w-full text-center px-2';
+
+    $html = '<div class="' . $groupClass . '" role="radiogroup"' . $idAttr . '>';
     foreach ($durations as $min) {
       $cid = $id ? $id . '_' . $min : ('dur_' . $min);
       $checked = ($selectedMin === $min) ? ' checked' : '';
       $html .= '
         <label class="cursor-pointer select-none">
           <input class="peer sr-only" type="radio" name="' . h($name) . '" value="' . $min . '" id="' . h($cid) . '" required' . $checked . '>
-          <span class="px-4 py-2 rounded-xl border text-sm bg-white border-gray-300 text-gray-800
-                       peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 inline-block">'
-        . str_replace(' ', '&nbsp;', format_duration_label($min)) .
+          <span class="' . $spanClass . ' py-2 rounded-xl border text-sm whitespace-nowrap bg-white border-gray-300 text-gray-800
+                       peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600">'
+        . $min . ' Min' .
         '</span>
         </label>';
     }
@@ -879,7 +901,7 @@ if (is_logged_in()) {
     $minAttr = ' min="' . h($today) . '"';
   }
   echo '<label class="block text-sm">Datum';
-  echo '  <input class="mt-1 dt-compact rounded-xl border w-full max-w-[300px] mx-auto block" type="date" name="book_date" value="' . h($prefDate) . '"' . $minAttr . ' appearance-none required>';
+  echo '  <input class="mt-1 dt-compact rounded-xl border w-full block appearance-none bg-white text-left" type="date" name="book_date" value="' . h($prefDate) . '"' . $minAttr . ' required>';
   echo '</label>';
 
   // Start/Ende (30 min Raster)
@@ -889,7 +911,7 @@ if (is_logged_in()) {
   $now->modify("+{$add} minutes");
   $defStart = $now->format('H:i');
 
-  echo '<div class="grid grid-cols-2 gap-3 items-center">';
+  echo '<div class="grid ' . (duration_needs_full_row(is_admin()) ? 'grid-cols-1' : 'grid-cols-2') . ' gap-3 items-center">';
   echo '  <label class="block text-sm">Start';
   echo        render_time_select('start_time', $defStart, false, 'start_time_single');
   echo '  </label>';
@@ -906,7 +928,7 @@ if (is_logged_in()) {
   echo '  <div class="text-sm">Platz</div>';
   echo '  <div id="freeCourtsWrap" class="space-y-2">';
   echo '    <p id="freeCourtsStatus" class="text-sm text-gray-500">Wähle Datum & Zeit, um freie Plätze zu laden.</p>';
-  echo '    <div id="freeCourts" class="flex justify-center flex-wrap gap-2" role="radiogroup"></div>';
+  echo '    <div id="freeCourts" class="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2" role="radiogroup"></div>';
   echo '  </div>';
   echo '</div>';
 
@@ -930,14 +952,14 @@ if (is_logged_in()) {
     // Wochentag (Anzeige ab Mo; Werte DB: 1,2,3,4,5,6,0)
     $weekdays = [['Mo', 1], ['Di', 2], ['Mi', 3], ['Do', 4], ['Fr', 5], ['Sa', 6], ['So', 0]];
     echo '<label class="block text-sm">Wochentag';
-    echo '  <select class="mt-1 w-full max-w-[300px] mx-auto block rounded-xl border px-4 py-3" name="weekday">';
+    echo '  <select class="mt-1 w-full block rounded-xl border px-4 py-3 bg-white" name="weekday">';
     foreach ($weekdays as [$label, $val]) echo '<option value="' . $val . '">' . $label . '</option>';
     echo '  </select>';
     echo '</label>';
 
     // Start/Ende (30 min Raster)
     $seriesStartVal = '17:00';
-    echo '<div class="grid grid-cols-2 gap-3 items-center">';
+    echo '<div class="grid ' . (duration_needs_full_row(is_admin()) ? 'grid-cols-1' : 'grid-cols-2') . ' gap-3 items-center">';
     echo '  <label class="block text-sm">Startzeit';
     echo        render_time_select('start_time', $seriesStartVal, false, 'start_time_series');
     echo '  </label>';
@@ -950,10 +972,10 @@ if (is_logged_in()) {
 
     // Beginn/Ende
     echo '<label class="block text-sm">Beginn';
-    echo '  <input id="seriesStart" class="mt-1 dt-compact rounded-xl border w-full max-w-[300px] mx-auto block" type="date" name="start_date" value="' . h($seriesStartDefault) . '" appearance-none required>';
+    echo '  <input id="seriesStart" class="mt-1 dt-compact rounded-xl border w-full block appearance-none bg-white text-left" type="date" name="start_date" value="' . h($seriesStartDefault) . '" required>';
     echo '</label>';
     echo '<label class="block text-sm">Ende';
-    echo '  <input id="seriesEnd" class="mt-1 dt-compact rounded-xl border w-full max-w-[300px] mx-auto block" type="date" name="end_date" value="' . h($seriesEndDefault) . '" appearance-none required>';
+    echo '  <input id="seriesEnd" class="mt-1 dt-compact rounded-xl border w-full block appearance-none bg-white text-left" type="date" name="end_date" value="' . h($seriesEndDefault) . '" required>';
     echo '</label>';
 
     // Platz – wird durch Serien-Preview befüllt
@@ -961,7 +983,7 @@ if (is_logged_in()) {
     echo '  <div class="text-sm">Platz</div>';
     echo '  <div id="seriesCourtsWrap" class="space-y-2">';
     echo '    <p id="seriesCourtsStatus" class="text-sm text-gray-500">Wähle Wochentag, Zeit & Zeitraum, um freie Plätze zu prüfen.</p>';
-    echo '    <div id="seriesCourts" class="flex justify-center flex-wrap gap-2" role="radiogroup"></div>';
+    echo '    <div id="seriesCourts" class="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2" role="radiogroup"></div>';
     echo '  </div>';
     echo '</div>';
 
@@ -1195,21 +1217,24 @@ const SeriesPreview = (() => {
   setStatus('info', null);
   setSubmitEnabled(false);
 
+  // Platznamen stammen aus der Datenbank und landen in innerHTML - maskieren
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const frag = document.createDocumentFragment();
   items.forEach(row => {
     const id = 'series_court_' + row.id;
-    const ok = Number(row.conflicts) === 0;
+    const total = Number(row.total), conflicts = Number(row.conflicts);
+    const ok = conflicts === 0;
     const badge = ok
-      ? `<span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">${row.total}/${row.total} frei</span>`
-      : `<span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">${row.total - row.conflicts}/${row.total} frei</span>`;
+      ? `<span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">${total}/${total} frei</span>`
+      : `<span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">${total - conflicts}/${total} frei</span>`;
 
     const label = document.createElement('label');
-    label.className = 'cursor-pointer select-none';
+    label.className = 'cursor-pointer select-none block';
     label.innerHTML = `
-      <input class="peer sr-only" type="radio" name="court_id" value="${row.id}" id="${id}" required>
-      <span class="px-4 py-2 rounded-xl border text-sm bg-white border-gray-300 text-gray-800
-                   peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 inline-flex items-center">
-        ${row.name} ${badge}
+      <input class="peer sr-only" type="radio" name="court_id" value="${esc(row.id)}" id="${esc(id)}" required>
+      <span class="flex w-full items-center justify-center px-3 py-2 rounded-xl border text-sm bg-white border-gray-300 text-gray-800
+                   peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600">
+        ${esc(row.name)} ${badge}
       </span>`;
 
     if (ok && !frag._picked) { label.dataset.autopick = '1'; frag._picked = true; }
@@ -1326,16 +1351,18 @@ const FreeCourts = (() => {
   setStatus('info', null);
   setDisabledBooking(true);
 
+  // Platznamen stammen aus der Datenbank und landen in innerHTML - maskieren
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const frag = document.createDocumentFragment();
   items.forEach(c => {
     const id = 'court_' + c.id;
     const label = document.createElement('label');
-    label.className = 'cursor-pointer select-none';
+    label.className = 'cursor-pointer select-none block';
     label.innerHTML = `
-      <input class="peer sr-only" type="radio" name="court_id" value="${c.id}" id="${id}" required>
-      <span class="px-4 py-2 rounded-xl border text-sm bg-white border-gray-300 text-gray-800
-                   peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600 inline-block">
-        ${c.name}
+      <input class="peer sr-only" type="radio" name="court_id" value="${esc(c.id)}" id="${esc(id)}" required>
+      <span class="block w-full text-center px-3 py-2 rounded-xl border text-sm bg-white border-gray-300 text-gray-800
+                   peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600">
+        ${esc(c.name)}
       </span>`;
     frag.appendChild(label);
   });
